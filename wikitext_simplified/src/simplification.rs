@@ -493,7 +493,7 @@ pub fn simplify_wikitext_node(
         pwt::Node::Heading { level, nodes, .. } => {
             return Ok(Some(WSN::Heading {
                 level: *level,
-                children: simplify_wikitext_nodes(wikitext, &nodes)?,
+                children: simplify_wikitext_nodes(wikitext, nodes)?,
             }));
         }
         pwt::Node::Bold { .. } | pwt::Node::BoldItalic { .. } | pwt::Node::Italic { .. } => {
@@ -557,7 +557,7 @@ pub fn simplify_wikitext_node(
         pwt::Node::Parameter { name, default, .. } => {
             let default = match default {
                 Some(default) => {
-                    let default_nodes = simplify_wikitext_nodes(wikitext, &default)?;
+                    let default_nodes = simplify_wikitext_nodes(wikitext, default)?;
                     assert!(default_nodes.len() == 1);
                     Some(Box::new(default_nodes[0].clone()))
                 }
