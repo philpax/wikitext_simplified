@@ -1,11 +1,17 @@
+//! A library for simplifying wikitext into a more manageable AST structure.
+//!
+//! This library provides functionality to parse wikitext and convert it into a simplified
+//! abstract syntax tree (AST) that's easier to work with. It handles various wikitext
+//! elements like templates, links, formatting, and more.
+
+#![deny(missing_docs)]
 use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
 
 use parse_wiki_text_2 as pwt;
 use wikitext_util::{
-    nodes_inner_text, nodes_inner_wikitext, wikipedia_pwt_configuration, InnerTextConfig,
-    NodeMetadata,
+    nodes_inner_text, nodes_wikitext, wikipedia_pwt_configuration, InnerTextConfig, NodeMetadata,
 };
 
 #[cfg(feature = "wasm")]
@@ -13,54 +19,91 @@ use tsify_next::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
+/// A simplified representation of a wikitext node.
+///
+/// This enum represents the various types of nodes that can appear in simplified wikitext.
+/// It's designed to be more straightforward to work with than the raw [`parse_wiki_text_2`] nodes.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[serde(tag = "type", rename_all = "kebab-case")]
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub enum WikitextSimplifiedNode {
+    /// A container node that can hold multiple child nodes
     Fragment {
+        /// The child nodes contained within this fragment
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// A template node, representing a wikitext template
     Template {
+        /// The name of the template
         name: String,
+        /// The parameters passed to the template
         children: Vec<TemplateParameter>,
     },
+    /// An internal wiki link
     Link {
+        /// The display text of the link
         text: String,
+        /// The target page of the link
         title: String,
     },
+    /// An external link
     ExtLink {
+        /// The URL of the external link
         link: String,
+        /// Optional display text for the link
         text: Option<String>,
     },
+    /// Bold text formatting
     Bold {
+        /// The content within the bold formatting
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Italic text formatting
     Italic {
+        /// The content within the italic formatting
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Blockquote formatting
     Blockquote {
+        /// The content within the blockquote
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Superscript text formatting
     Superscript {
+        /// The content within the superscript formatting
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Subscript text formatting
     Subscript {
+        /// The content within the subscript formatting
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Small text formatting
     Small {
+        /// The content within the small text formatting
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Preformatted text
     Preformatted {
+        /// The content within the preformatted block
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// Plain text content
     Text {
+        /// The text content
         text: String,
     },
+    /// A paragraph break
     ParagraphBreak,
+    /// A line break
     Newline,
 }
 impl WikitextSimplifiedNode {
+    /// Returns a reference to the children of this node, if it has any.
+    ///
+    /// This method returns `Some` for node types that can contain children (like `Fragment`,
+    /// `Bold`, `Italic`, etc.) and `None` for leaf nodes (like `Text`, `ParagraphBreak`).
     pub fn children(&self) -> Option<&[WikitextSimplifiedNode]> {
         match self {
             Self::Fragment { children } => Some(children),
@@ -74,6 +117,11 @@ impl WikitextSimplifiedNode {
             _ => None,
         }
     }
+
+    /// Returns a mutable reference to the children of this node, if it has any.
+    ///
+    /// This method returns `Some` for node types that can contain children (like `Fragment`,
+    /// `Bold`, `Italic`, etc.) and `None` for leaf nodes (like `Text`, `ParagraphBreak`).
     pub fn children_mut(&mut self) -> Option<&mut Vec<WikitextSimplifiedNode>> {
         match self {
             Self::Fragment { children } => Some(children),
@@ -87,6 +135,11 @@ impl WikitextSimplifiedNode {
             _ => None,
         }
     }
+
+    /// Visits this node and all its children recursively with the given visitor function.
+    ///
+    /// The visitor function is called on each node in depth-first order, starting with
+    /// this node and then visiting all its children.
     pub fn visit_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
         visitor(self);
         if let Some(children) = self.children_mut() {
@@ -96,17 +149,26 @@ impl WikitextSimplifiedNode {
         }
     }
 }
+
+/// A parameter for a wikitext template
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TemplateParameter {
+    /// The name of the parameter
     pub name: String,
+    /// The value of the parameter
     pub value: String,
 }
 
-/// Parses wikitext and simplifies it into a nested AST using Wikipedia's PWT configuration.
+/// Helper function that parses wikitext and converts it into a simplified AST structure.
 ///
-/// Will panic on failure.
+/// This function takes a wikitext string and returns a vector of simplified nodes.
+/// It uses Wikipedia's configuration for parsing the wikitext.
+///
+/// # Panics
+///
+/// This function will panic if the wikitext cannot be parsed.
 pub fn parse_and_simplify_wikitext(wikitext: &str) -> Vec<WikitextSimplifiedNode> {
     static PWT_CONFIGURATION: LazyLock<pwt::Configuration> =
         LazyLock::new(wikipedia_pwt_configuration);
@@ -115,6 +177,15 @@ pub fn parse_and_simplify_wikitext(wikitext: &str) -> Vec<WikitextSimplifiedNode
     simplify_wikitext_nodes(wikitext, &output.nodes)
 }
 
+/// Converts a sequence of raw wikitext nodes into simplified nodes.
+///
+/// This function takes the original wikitext string and a sequence of nodes from
+/// [`parse_wiki_text_2`] and converts them into the simplified node structure.
+///
+/// # Panics
+///
+/// This function will panic if it encounters an unknown node type. It will also panic
+/// if the stack of nodes is not properly closed.
 pub fn simplify_wikitext_nodes(wikitext: &str, nodes: &[pwt::Node]) -> Vec<WikitextSimplifiedNode> {
     use WikitextSimplifiedNode as WSN;
     struct RootStack {
@@ -226,6 +297,15 @@ pub fn simplify_wikitext_nodes(wikitext: &str, nodes: &[pwt::Node]) -> Vec<Wikit
     root_stack.unwind()
 }
 
+/// Converts a single raw wikitext node into a simplified node.
+///
+/// This function handles the conversion of individual nodes from the [`parse_wiki_text_2`]
+/// format into the simplified format. It handles various node types including templates,
+/// links, text, and formatting nodes.
+///
+/// # Panics
+///
+/// This function will panic if it encounters an unknown node type.
 pub fn simplify_wikitext_node(wikitext: &str, node: &pwt::Node) -> Option<WikitextSimplifiedNode> {
     use WikitextSimplifiedNode as WSN;
     match node {
@@ -273,12 +353,12 @@ pub fn simplify_wikitext_node(wikitext: &str, node: &pwt::Node) -> Option<Wikite
         }
         pwt::Node::Link { target, text, .. } => {
             return Some(WSN::Link {
-                text: nodes_inner_wikitext(wikitext, text),
+                text: nodes_wikitext(wikitext, text),
                 title: target.to_string(),
             });
         }
         pwt::Node::ExternalLink { nodes, .. } => {
-            let inner = nodes_inner_wikitext(wikitext, nodes);
+            let inner = nodes_wikitext(wikitext, nodes);
             let (link, text) = inner
                 .split_once(' ')
                 .map(|(l, t)| (l, Some(t)))

@@ -1,9 +1,20 @@
+//! A utility library for working with wikitext, providing functions to parse and process Wikipedia-style markup.
+//!
+//! This library provides utilities for working with the `parse-wiki-text-2` crate, including functions
+//! to extract text content from wikitext nodes and handle various wikitext elements.
+
+#![deny(missing_docs)]
 use parse_wiki_text_2 as pwt;
 
+/// Metadata about a wikitext node, including its type, position in the source text, and child nodes.
 pub struct NodeMetadata<'a> {
+    /// The name/type of the node (e.g. "bold", "link", "template")
     pub name: &'static str,
+    /// The starting position of the node in the source text
     pub start: usize,
+    /// The ending position of the node in the source text
     pub end: usize,
+    /// Optional child nodes contained within this node
     pub children: Option<&'a [pwt::Node<'a>]>,
 }
 impl<'a> NodeMetadata<'a> {
@@ -21,6 +32,10 @@ impl<'a> NodeMetadata<'a> {
         }
     }
 
+    /// Creates a [`NodeMetadata`] instance from a wikitext node.
+    ///
+    /// This function extracts metadata about a node's type, position, and children
+    /// from a [`parse_wiki_text_2`] node.
     pub fn for_node(node: &'a pwt::Node) -> NodeMetadata<'a> {
         use NodeMetadata as NM;
         match node {
@@ -88,9 +103,18 @@ impl<'a> NodeMetadata<'a> {
     }
 }
 
-/// Unlike [`nodes_inner_text`], this function does not retrieve just text: it retrieves all of the wikitext
-/// described by the nodes.
-pub fn nodes_inner_wikitext(original_wikitext: &str, nodes: &[pwt::Node]) -> String {
+/// Configuration options for extracting inner text from wikitext nodes.
+#[derive(Default)]
+pub struct InnerTextConfig {
+    /// Whether to stop processing after encountering a `<br>` tag.
+    pub stop_after_br: bool,
+}
+
+/// Extracts the raw wikitext content from a sequence of nodes.
+///
+/// Unlike [`nodes_inner_text`], this retrieves the raw wikitext for each node,
+/// preserving the original formatting.
+pub fn nodes_wikitext(original_wikitext: &str, nodes: &[pwt::Node]) -> String {
     let mut result = String::new();
     for node in nodes {
         let metadata = NodeMetadata::for_node(node);
@@ -99,12 +123,10 @@ pub fn nodes_inner_wikitext(original_wikitext: &str, nodes: &[pwt::Node]) -> Str
     result
 }
 
-#[derive(Default)]
-pub struct InnerTextConfig {
-    /// Whether to stop after a `<br>` tag.
-    pub stop_after_br: bool,
-}
-/// Joins nodes together without any space between them and trims the result, which is not always the correct behaviour
+/// Extracts the text content from a sequence of wikitext nodes.
+///
+/// This function joins the text content of nodes together without spaces and trims the result.
+/// Note that this behavior may not always be correct for all use cases.
 pub fn nodes_inner_text(nodes: &[pwt::Node], config: &InnerTextConfig) -> String {
     let mut result = String::new();
     for node in nodes {
@@ -117,10 +139,12 @@ pub fn nodes_inner_text(nodes: &[pwt::Node], config: &InnerTextConfig) -> String
     result.trim().to_string()
 }
 
-/// Just gets the inner text without any formatting, which is not always the correct behaviour
+/// Extracts the text content from a single wikitext node.
 ///
-/// This function is allocation-heavy; there's definitely room for optimisation here, but it's
-/// not a huge issue right now
+/// This function handles various node types and extracts their text content,
+/// ignoring formatting. Note that this behavior may not always be correct for all use cases.
+///
+/// This function is allocation-heavy; there's room for optimization but it's not currently a priority.
 pub fn node_inner_text(node: &pwt::Node, config: &InnerTextConfig) -> String {
     use pwt::Node;
     match node {
@@ -173,6 +197,15 @@ pub fn node_inner_text(node: &pwt::Node, config: &InnerTextConfig) -> String {
     }
 }
 
+/// Creates a Wikipedia-compatible configuration for the `parse_wiki_text_2` parser.
+///
+/// This configuration includes Wikipedia-specific settings for:
+/// - Category namespaces
+/// - Extension tags
+/// - File namespaces
+/// - Magic words
+/// - Protocols
+/// - Redirect magic words
 pub fn wikipedia_pwt_configuration() -> pwt::Configuration {
     pwt::Configuration::new(&pwt::ConfigurationSource {
         category_namespaces: &["category"],
