@@ -252,8 +252,8 @@ pub struct TemplateParameter {
 ///
 /// This function will return an error if it encounters an unknown node type or if the stack
 /// of nodes is not properly closed.
-pub fn simplify_wikitext_nodes<'a>(
-    wikitext: &'a str,
+pub fn simplify_wikitext_nodes(
+    wikitext: &str,
     nodes: &[pwt::Node],
 ) -> Result<Vec<WikitextSimplifiedNode>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;

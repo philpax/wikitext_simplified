@@ -28,7 +28,7 @@ pub enum ParseAndSimplifyWikitextError<'a> {
     /// Error occurred during simplification of wikitext nodes
     SimplificationError(SimplificationError),
 }
-impl<'a> std::fmt::Display for ParseAndSimplifyWikitextError<'a> {
+impl std::fmt::Display for ParseAndSimplifyWikitextError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ParseAndSimplifyWikitextError::ParseError(e) => write!(f, "Parse error: {e:?}"),
@@ -38,7 +38,7 @@ impl<'a> std::fmt::Display for ParseAndSimplifyWikitextError<'a> {
         }
     }
 }
-impl<'a> std::error::Error for ParseAndSimplifyWikitextError<'a> {}
+impl std::error::Error for ParseAndSimplifyWikitextError<'_> {}
 
 /// Helper function that parses wikitext and converts it into a simplified AST structure.
 ///
