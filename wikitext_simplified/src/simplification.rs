@@ -246,6 +246,7 @@ impl WikitextSimplifiedNode {
             Self::Subscript { children } => Some(children),
             Self::Small { children } => Some(children),
             Self::Preformatted { children } => Some(children),
+            Self::Tag { children, .. } => Some(children),
             _ => None,
         }
     }
@@ -264,6 +265,7 @@ impl WikitextSimplifiedNode {
             Self::Subscript { children } => Some(children),
             Self::Small { children } => Some(children),
             Self::Preformatted { children } => Some(children),
+            Self::Tag { children, .. } => Some(children),
             _ => None,
         }
     }

@@ -69,3 +69,18 @@ fn will_simplify_nested_template_parameters() {
     );
 }
 
+#[test]
+fn will_simplify_template_parameter_inside_html_tag() {
+    let wikitext = r#"<span style="color:#505050;font-size:80%">{{{1}}}</span>"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::Tag {
+            name: "span".into(),
+            children: vec![WSN::TemplateParameterUse {
+                name: "1".into(),
+                default: None,
+            }],
+        }]
+    );
+}
