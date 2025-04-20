@@ -81,8 +81,13 @@ pub enum NodeStructureError {
     MissingBoldLayer,
     /// Found an unclosed formatting node
     UnclosedFormatting,
-    /// Found an unexpected node type in the current context
-    UnexpectedNodeType(String),
+    /// Found a tag closure mismatch, where the closing tag does not match the opening tag
+    TagClosureMismatch {
+        /// The expected tag name
+        expected: String,
+        /// The actual tag name
+        actual: String,
+    },
 }
 impl std::fmt::Display for NodeStructureError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,7 +99,13 @@ impl std::fmt::Display for NodeStructureError {
                 write!(f, "Bold-italic found without a bold layer")
             }
             NodeStructureError::UnclosedFormatting => write!(f, "Unclosed formatting node"),
-            NodeStructureError::UnexpectedNodeType(ty) => write!(f, "Unexpected node type: {}", ty),
+            NodeStructureError::TagClosureMismatch { expected, actual } => {
+                write!(
+                    f,
+                    "Tag closure mismatch: {} (expected {})",
+                    actual, expected
+                )
+            }
         }
     }
 }
@@ -302,6 +313,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "blockquote" => {
                 let blockquote = root_stack.pop_layer()?;
+                assert_tag_closure_matches(name, &blockquote)?;
                 root_stack.add_to_children(blockquote)?;
             }
             pwt::Node::StartTag { name, .. } if name == "sup" => {
@@ -309,6 +321,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "sup" => {
                 let superscript = root_stack.pop_layer()?;
+                assert_tag_closure_matches(name, &superscript)?;
                 root_stack.add_to_children(superscript)?;
             }
             pwt::Node::StartTag { name, .. } if name == "sub" => {
@@ -316,6 +329,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "sub" => {
                 let subscript = root_stack.pop_layer()?;
+                assert_tag_closure_matches(name, &subscript)?;
                 root_stack.add_to_children(subscript)?;
             }
             pwt::Node::StartTag { name, .. } if name == "small" => {
@@ -323,6 +337,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "small" => {
                 let small = root_stack.pop_layer()?;
+                assert_tag_closure_matches(name, &small)?;
                 root_stack.add_to_children(small)?;
             }
             other => {
@@ -333,6 +348,28 @@ pub fn simplify_wikitext_nodes(
         }
     }
 
+    fn assert_tag_closure_matches(
+        end_tag_name: &str,
+        last_node: &WikitextSimplifiedNode,
+    ) -> Result<(), SimplificationError> {
+        match last_node {
+            WSN::Tag { name, .. } if name == end_tag_name => Ok(()),
+            _ => Err(SimplificationError::InvalidNodeStructure {
+                kind: NodeStructureError::TagClosureMismatch {
+                    expected: end_tag_name.to_string(),
+                    actual: format!("{last_node:?}"),
+                },
+                context: SimplificationErrorContext {
+                    // Filling this in requires us to have the original bounds and wikitext,
+                    // which we don't have here. This can be fixed, but it would require a more
+                    // significant refactor.
+                    content: "TODO: Fill in context for tag closure mismatch".into(),
+                    start: 0,
+                    end: 0,
+                },
+            }),
+        }
+    }
     root_stack.unwind()
 }
 
