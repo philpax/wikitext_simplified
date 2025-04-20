@@ -1,0 +1,20 @@
+[package]
+name = "wikitext_simplified"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+wasm = [
+    "dep:serde-wasm-bindgen",
+    "dep:tsify-next",
+    "dep:wasm-bindgen",
+    "parse-wiki-text-2/wasm",
+]
+
+[dependencies]
+parse-wiki-text-2 = { workspace = true }
+serde = { workspace = true }
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+tsify-next = { version = "0.5.5", features = ["js"], optional = true }
+wasm-bindgen = { version = "0.2.100", optional = true }
+wikitext_util = { path = "../wikitext_util" }
