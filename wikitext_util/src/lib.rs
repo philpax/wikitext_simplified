@@ -104,7 +104,7 @@ impl<'a> NodeMetadata<'a> {
 }
 
 /// Configuration options for extracting inner text from wikitext nodes.
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct InnerTextConfig {
     /// Whether to stop processing after encountering a `<br>` tag.
     pub stop_after_br: bool,
@@ -127,7 +127,17 @@ pub fn nodes_wikitext(original_wikitext: &str, nodes: &[pwt::Node]) -> String {
 ///
 /// This function joins the text content of nodes together without spaces and trims the result.
 /// Note that this behavior may not always be correct for all use cases.
-pub fn nodes_inner_text(nodes: &[pwt::Node], config: &InnerTextConfig) -> String {
+///
+/// Helper function that calls [`nodes_inner_text_with_config`] with the default configuration.
+pub fn nodes_inner_text(nodes: &[pwt::Node]) -> String {
+    nodes_inner_text_with_config(nodes, InnerTextConfig::default())
+}
+
+/// Extracts the text content from a sequence of wikitext nodes.
+///
+/// This function joins the text content of nodes together without spaces and trims the result.
+/// Note that this behavior may not always be correct for all use cases.
+pub fn nodes_inner_text_with_config(nodes: &[pwt::Node], config: InnerTextConfig) -> String {
     let mut result = String::new();
     for node in nodes {
         if config.stop_after_br && matches!(node, pwt::Node::StartTag { name, .. } if name == "br")
@@ -145,22 +155,22 @@ pub fn nodes_inner_text(nodes: &[pwt::Node], config: &InnerTextConfig) -> String
 /// ignoring formatting. Note that this behavior may not always be correct for all use cases.
 ///
 /// This function is allocation-heavy; there's room for optimization but it's not currently a priority.
-pub fn node_inner_text(node: &pwt::Node, config: &InnerTextConfig) -> String {
+pub fn node_inner_text(node: &pwt::Node, config: InnerTextConfig) -> String {
     use pwt::Node;
     match node {
         Node::CharacterEntity { character, .. } => character.to_string(),
         // Node::DefinitionList { end, items, start } => nodes_inner_text(items, config),
-        Node::Heading { nodes, .. } => nodes_inner_text(nodes, config),
-        Node::Image { text, .. } => nodes_inner_text(text, config),
-        Node::Link { text, .. } => nodes_inner_text(text, config),
+        Node::Heading { nodes, .. } => nodes_inner_text_with_config(nodes, config),
+        Node::Image { text, .. } => nodes_inner_text_with_config(text, config),
+        Node::Link { text, .. } => nodes_inner_text_with_config(text, config),
         // Node::OrderedList { end, items, start } => nodes_inner_text(items, config),
-        Node::Preformatted { nodes, .. } => nodes_inner_text(nodes, config),
+        Node::Preformatted { nodes, .. } => nodes_inner_text_with_config(nodes, config),
         Node::Text { value, .. } => value.to_string(),
         // Node::UnorderedList { end, items, start } => nodes_inner_text(items, config),
         Node::Template {
             name, parameters, ..
         } => {
-            let name = nodes_inner_text(name, config).to_ascii_lowercase();
+            let name = nodes_inner_text_with_config(name, config).to_ascii_lowercase();
 
             if name == "lang" {
                 // hack: extract the text from the other-language template
@@ -170,10 +180,10 @@ pub fn node_inner_text(node: &pwt::Node, config: &InnerTextConfig) -> String {
                     .find(|p| {
                         p.name
                             .as_ref()
-                            .is_some_and(|n| nodes_inner_text(n, config) == "text")
+                            .is_some_and(|n| nodes_inner_text_with_config(n, config) == "text")
                     })
                     .or_else(|| parameters.iter().filter(|p| p.name.is_none()).nth(1))
-                    .map(|p| nodes_inner_text(&p.value, config))
+                    .map(|p| nodes_inner_text_with_config(&p.value, config))
                     .unwrap_or_default()
             } else if name == "transliteration" || name == "tlit" || name == "transl" {
                 // text is either the second or the third positional argument;
@@ -185,9 +195,9 @@ pub fn node_inner_text(node: &pwt::Node, config: &InnerTextConfig) -> String {
                     .filter(|p| p.name.is_none())
                     .collect::<Vec<_>>();
                 if positional_args.len() >= 3 {
-                    nodes_inner_text(&positional_args[2].value, config)
+                    nodes_inner_text_with_config(&positional_args[2].value, config)
                 } else {
-                    nodes_inner_text(&positional_args[1].value, config)
+                    nodes_inner_text_with_config(&positional_args[1].value, config)
                 }
             } else {
                 "".to_string()

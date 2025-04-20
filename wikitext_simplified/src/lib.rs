@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use parse_wiki_text_2 as pwt;
-use wikitext_util::{nodes_inner_text, nodes_wikitext, InnerTextConfig, NodeMetadata};
+use wikitext_util::{nodes_inner_text, nodes_wikitext, NodeMetadata};
 
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -474,7 +474,7 @@ pub fn simplify_wikitext_node(
             let mut children = vec![];
             for parameter in parameters {
                 let name = if let Some(parameter_name) = &parameter.name {
-                    nodes_inner_text(parameter_name, &InnerTextConfig::default())
+                    nodes_inner_text(parameter_name)
                 } else {
                     let name = unnamed_parameter_index.to_string();
                     unnamed_parameter_index += 1;
@@ -497,7 +497,7 @@ pub fn simplify_wikitext_node(
             }
 
             return Ok(Some(WSN::Template {
-                name: nodes_inner_text(name, &InnerTextConfig::default()),
+                name: nodes_inner_text(name),
                 children,
             }));
         }
