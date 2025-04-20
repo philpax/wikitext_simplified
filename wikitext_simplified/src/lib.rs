@@ -21,33 +21,33 @@ use wasm_bindgen::prelude::*;
 
 /// Errors that can occur during simplification of wikitext nodes
 #[derive(Debug)]
-pub enum WikitextError {
-    /// Error occurred during simplification of wikitext nodes
-    SimplificationError {
+pub enum SimplificationError {
+    /// An unknown node type was encountered
+    UnknownNode {
         /// The type of node that caused the error
-        node_type: String,
+        node_type: &'static str,
         /// The context of where the error occurred
-        context: WikitextErrorContext,
+        context: SimplificationErrorContext,
     },
     /// Error occurred due to invalid node structure
     InvalidNodeStructure {
         /// The specific type of structural error
         kind: NodeStructureError,
         /// The context of where the error occurred
-        context: WikitextErrorContext,
+        context: SimplificationErrorContext,
     },
 }
-impl std::fmt::Display for WikitextError {
+impl std::fmt::Display for SimplificationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WikitextError::SimplificationError { node_type, context } => {
+            SimplificationError::UnknownNode { node_type, context } => {
                 write!(
                     f,
-                    "Simplification error: Unknown node type '{}' at position {}-{}: '{}'",
+                    "Unknown node type '{}' at position {}-{}: '{}'",
                     node_type, context.start, context.end, context.content
                 )
             }
-            WikitextError::InvalidNodeStructure { kind, context } => {
+            SimplificationError::InvalidNodeStructure { kind, context } => {
                 write!(
                     f,
                     "Invalid node structure: {} at position {}-{}: '{}'",
@@ -57,11 +57,12 @@ impl std::fmt::Display for WikitextError {
         }
     }
 }
-impl std::error::Error for WikitextError {}
+impl std::error::Error for SimplificationError {}
 
-/// Context information for errors that occur at specific positions in the wikitext
+/// Context information for simplification errors that occur at specific
+/// positions in the wikitext
 #[derive(Debug)]
-pub struct WikitextErrorContext {
+pub struct SimplificationErrorContext {
     /// The problematic content from the wikitext
     pub content: String,
     /// The start position of the problematic content
@@ -69,7 +70,7 @@ pub struct WikitextErrorContext {
     /// The end position of the problematic content
     pub end: usize,
 }
-impl WikitextErrorContext {
+impl SimplificationErrorContext {
     /// Creates a new error context from a node's metadata
     pub fn from_node_metadata(wikitext: &str, metadata: &NodeMetadata) -> Self {
         Self {
@@ -117,7 +118,7 @@ pub enum ParseAndSimplifyWikitextError<'a> {
     /// Error occurred during parsing of wikitext
     ParseError(pwt::ParseError<'a>),
     /// Error occurred during simplification of wikitext nodes
-    SimplificationError(WikitextError),
+    SimplificationError(SimplificationError),
 }
 
 impl<'a> std::fmt::Display for ParseAndSimplifyWikitextError<'a> {
@@ -301,7 +302,7 @@ pub struct TemplateParameter {
 pub fn simplify_wikitext_nodes<'a>(
     wikitext: &'a str,
     nodes: &[pwt::Node],
-) -> Result<Vec<WikitextSimplifiedNode>, WikitextError> {
+) -> Result<Vec<WikitextSimplifiedNode>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;
     struct RootStack<'a> {
         stack: Vec<WSN>,
@@ -319,10 +320,10 @@ pub fn simplify_wikitext_nodes<'a>(
         fn push_layer(&mut self, node: WSN) {
             self.stack.push(node);
         }
-        fn pop_layer(&mut self) -> Result<WSN, WikitextError> {
+        fn pop_layer(&mut self) -> Result<WSN, SimplificationError> {
             self.stack
                 .pop()
-                .ok_or_else(|| WikitextError::InvalidNodeStructure {
+                .ok_or_else(|| SimplificationError::InvalidNodeStructure {
                     kind: NodeStructureError::StackUnderflow,
                     context: Self::error_context_for_current_node(self.wikitext, self.current_node),
                 })
@@ -330,22 +331,22 @@ pub fn simplify_wikitext_nodes<'a>(
         fn last_layer(&self) -> &WSN {
             self.stack.last().unwrap()
         }
-        fn add_to_children(&mut self, node: WSN) -> Result<(), WikitextError> {
+        fn add_to_children(&mut self, node: WSN) -> Result<(), SimplificationError> {
             self.stack
                 .last_mut()
-                .ok_or_else(|| WikitextError::InvalidNodeStructure {
+                .ok_or_else(|| SimplificationError::InvalidNodeStructure {
                     kind: NodeStructureError::StackUnderflow,
                     context: Self::error_context_for_current_node(self.wikitext, self.current_node),
                 })?
                 .children_mut()
-                .ok_or_else(|| WikitextError::InvalidNodeStructure {
+                .ok_or_else(|| SimplificationError::InvalidNodeStructure {
                     kind: NodeStructureError::NoChildren,
                     context: Self::error_context_for_current_node(self.wikitext, self.current_node),
                 })?
                 .push(node);
             Ok(())
         }
-        fn unwind(mut self) -> Result<Vec<WSN>, WikitextError> {
+        fn unwind(mut self) -> Result<Vec<WSN>, SimplificationError> {
             // This is a disgusting hack, but Wikipedia implicitly closes these, so we need to as well...
             while self.stack.len() > 1 {
                 let popped = self.pop_layer()?;
@@ -359,15 +360,15 @@ pub fn simplify_wikitext_nodes<'a>(
         fn error_context_for_current_node(
             wikitext: &'a str,
             current_node: Option<&'a pwt::Node>,
-        ) -> WikitextErrorContext {
+        ) -> SimplificationErrorContext {
             current_node
                 .map(|node| {
-                    WikitextErrorContext::from_node_metadata(
+                    SimplificationErrorContext::from_node_metadata(
                         wikitext,
                         &NodeMetadata::for_node(node),
                     )
                 })
-                .unwrap_or_else(|| WikitextErrorContext {
+                .unwrap_or_else(|| SimplificationErrorContext {
                     content: "No current node".into(),
                     start: 0,
                     end: 0,
@@ -403,9 +404,9 @@ pub fn simplify_wikitext_nodes<'a>(
                         bold.children_mut().unwrap().push(italic);
                         root_stack.add_to_children(bold)?;
                     } else {
-                        return Err(WikitextError::InvalidNodeStructure {
+                        return Err(SimplificationError::InvalidNodeStructure {
                             kind: NodeStructureError::MissingBoldLayer,
-                            context: WikitextErrorContext::from_node_metadata(
+                            context: SimplificationErrorContext::from_node_metadata(
                                 wikitext,
                                 &NodeMetadata::for_node(node),
                             ),
@@ -467,7 +468,7 @@ pub fn simplify_wikitext_nodes<'a>(
 pub fn simplify_wikitext_node(
     wikitext: &str,
     node: &pwt::Node,
-) -> Result<Option<WikitextSimplifiedNode>, WikitextError> {
+) -> Result<Option<WikitextSimplifiedNode>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;
     match node {
         pwt::Node::Template {
@@ -569,9 +570,9 @@ pub fn simplify_wikitext_node(
         _ => {}
     }
     let metadata = NodeMetadata::for_node(node);
-    Err(WikitextError::SimplificationError {
-        node_type: "Unknown".into(),
-        context: WikitextErrorContext::from_node_metadata(wikitext, &metadata),
+    Err(SimplificationError::UnknownNode {
+        node_type: metadata.name,
+        context: SimplificationErrorContext::from_node_metadata(wikitext, &metadata),
     })
 }
 
