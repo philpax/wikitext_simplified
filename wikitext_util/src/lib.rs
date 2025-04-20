@@ -4,6 +4,7 @@
 //! to extract text content from wikitext nodes and handle various wikitext elements.
 
 #![deny(missing_docs)]
+pub use parse_wiki_text_2;
 use parse_wiki_text_2 as pwt;
 
 /// Metadata about a wikitext node, including its type, position in the source text, and child nodes.

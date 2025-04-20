@@ -6,6 +6,8 @@
 
 #![deny(missing_docs)]
 
+pub use parse_wiki_text_2;
+
 use serde::{Deserialize, Serialize};
 
 use parse_wiki_text_2 as pwt;
