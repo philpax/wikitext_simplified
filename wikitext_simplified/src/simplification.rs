@@ -76,7 +76,10 @@ pub enum NodeStructureError {
     /// Attempted to push to a full stack (if we ever implement a size limit)
     StackOverflow,
     /// Attempted to access children of a node that has no children
-    NoChildren,
+    NoChildren {
+        /// The type of node that has no children
+        parent_node_type: &'static str,
+    },
     /// Found a bold-italic node without a corresponding bold node
     MissingBoldLayer,
     /// Found an unclosed formatting node
@@ -94,7 +97,9 @@ impl std::fmt::Display for NodeStructureError {
         match self {
             NodeStructureError::StackUnderflow => write!(f, "Stack underflow"),
             NodeStructureError::StackOverflow => write!(f, "Stack overflow"),
-            NodeStructureError::NoChildren => write!(f, "Node has no children"),
+            NodeStructureError::NoChildren { parent_node_type } => {
+                write!(f, "Node of type '{}' has no children", parent_node_type)
+            }
             NodeStructureError::MissingBoldLayer => {
                 write!(f, "Bold-italic found without a bold layer")
             }
@@ -205,6 +210,28 @@ pub enum WikitextSimplifiedNode {
     Newline,
 }
 impl WikitextSimplifiedNode {
+    /// Returns the type of this node.
+    pub fn node_type(&self) -> &'static str {
+        match self {
+            Self::Fragment { .. } => "fragment",
+            Self::Template { .. } => "template",
+            Self::TemplateParameterUse { .. } => "template-parameter-use",
+            Self::Link { .. } => "link",
+            Self::ExtLink { .. } => "ext-link",
+            Self::Bold { .. } => "bold",
+            Self::Italic { .. } => "italic",
+            Self::Blockquote { .. } => "blockquote",
+            Self::Superscript { .. } => "superscript",
+            Self::Subscript { .. } => "subscript",
+            Self::Small { .. } => "small",
+            Self::Preformatted { .. } => "preformatted",
+            Self::Tag { .. } => "tag",
+            Self::Text { .. } => "text",
+            Self::ParagraphBreak => "paragraph-break",
+            Self::Newline => "newline",
+        }
+    }
+
     /// Returns a reference to the children of this node, if it has any.
     ///
     /// This method returns `Some` for node types that can contain children (like `Fragment`,
@@ -565,18 +592,23 @@ impl<'a> RootStack<'a> {
     }
 
     fn add_to_children(&mut self, node: WikitextSimplifiedNode) -> Result<(), SimplificationError> {
-        self.stack
-            .last_mut()
-            .ok_or_else(|| SimplificationError::InvalidNodeStructure {
-                kind: NodeStructureError::StackUnderflow,
-                context: Self::error_context_for_current_node(self.wikitext, self.current_node),
-            })?
+        let last_layer =
+            self.stack
+                .last_mut()
+                .ok_or_else(|| SimplificationError::InvalidNodeStructure {
+                    kind: NodeStructureError::StackUnderflow,
+                    context: Self::error_context_for_current_node(self.wikitext, self.current_node),
+                })?;
+        let parent_node_type = last_layer.node_type();
+
+        last_layer
             .children_mut()
             .ok_or_else(|| SimplificationError::InvalidNodeStructure {
-                kind: NodeStructureError::NoChildren,
+                kind: NodeStructureError::NoChildren { parent_node_type },
                 context: Self::error_context_for_current_node(self.wikitext, self.current_node),
             })?
             .push(node);
+
         Ok(())
     }
 
