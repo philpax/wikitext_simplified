@@ -7,6 +7,7 @@
 #![deny(missing_docs)]
 
 pub use parse_wiki_text_2;
+pub use wikitext_util;
 
 use serde::{Deserialize, Serialize};
 
