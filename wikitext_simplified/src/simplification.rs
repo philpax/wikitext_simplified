@@ -5,8 +5,6 @@ use wikitext_util::{nodes_inner_text, nodes_wikitext, NodeMetadata};
 
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// Errors that can occur during simplification of wikitext nodes
 #[derive(Debug)]
