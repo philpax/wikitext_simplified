@@ -52,3 +52,20 @@ fn will_gracefully_ignore_refs() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(simplified, vec![]);
 }
+
+#[test]
+fn will_simplify_nested_template_parameters() {
+    let wikitext = r#"{{{description|{{{file_name}}}}}}"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::TemplateParameterUse {
+            name: "description".into(),
+            default: Some(Box::new(WSN::TemplateParameterUse {
+                name: "file_name".into(),
+                default: None,
+            })),
+        }]
+    );
+}
+

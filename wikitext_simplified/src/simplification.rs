@@ -131,6 +131,13 @@ pub enum WikitextSimplifiedNode {
         /// The parameters passed to the template
         children: Vec<TemplateParameter>,
     },
+    /// A use of a parameter within a template
+    TemplateParameterUse {
+        /// The name of the parameter
+        name: String,
+        /// Default, if available
+        default: Option<Box<WikitextSimplifiedNode>>,
+    },
     /// An internal wiki link
     Link {
         /// The display text of the link
@@ -500,6 +507,21 @@ pub fn simplify_wikitext_node(
         pwt::Node::Preformatted { nodes, .. } => {
             return Ok(Some(WSN::Preformatted {
                 children: simplify_wikitext_nodes(wikitext, nodes)?,
+            }));
+        }
+        pwt::Node::Parameter { name, default, .. } => {
+            let default = match default {
+                Some(default) => {
+                    let default_nodes = simplify_wikitext_nodes(wikitext, &default)?;
+                    assert!(default_nodes.len() == 1);
+                    Some(Box::new(default_nodes[0].clone()))
+                }
+                None => None,
+            };
+
+            return Ok(Some(WSN::TemplateParameterUse {
+                name: nodes_inner_text(name),
+                default,
             }));
         }
         _ => {}
