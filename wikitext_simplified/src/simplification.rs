@@ -180,6 +180,13 @@ pub enum WikitextSimplifiedNode {
         /// The content within the preformatted block
         children: Vec<WikitextSimplifiedNode>,
     },
+    /// An arbitrary tag.
+    Tag {
+        /// The name of the tag
+        name: String,
+        /// The content within the tag
+        children: Vec<WikitextSimplifiedNode>,
+    },
     /// Plain text content
     Text {
         /// The text content
@@ -339,6 +346,17 @@ pub fn simplify_wikitext_nodes(
                 let small = root_stack.pop_layer()?;
                 assert_tag_closure_matches(name, &small)?;
                 root_stack.add_to_children(small)?;
+            }
+            pwt::Node::StartTag { name, .. } => {
+                root_stack.push_layer(WSN::Tag {
+                    name: name.to_string(),
+                    children: vec![],
+                });
+            }
+            pwt::Node::EndTag { name, .. } => {
+                let tag = root_stack.pop_layer()?;
+                assert_tag_closure_matches(name, &tag)?;
+                root_stack.add_to_children(tag)?;
             }
             other => {
                 if let Some(simplified_node) = simplify_wikitext_node(wikitext, other)? {
