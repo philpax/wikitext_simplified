@@ -84,3 +84,18 @@ fn will_simplify_template_parameter_inside_html_tag() {
         }]
     );
 }
+
+#[test]
+fn can_parse_heading() {
+    let wikitext = r#"==Heading=="#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::Heading {
+            level: 2,
+            children: vec![WSN::Text {
+                text: "Heading".into(),
+            }],
+        }]
+    );
+}

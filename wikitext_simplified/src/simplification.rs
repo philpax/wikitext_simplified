@@ -143,6 +143,13 @@ pub enum WikitextSimplifiedNode {
         /// Default, if available
         default: Option<Box<WikitextSimplifiedNode>>,
     },
+    /// A heading node
+    Heading {
+        /// The level of the heading
+        level: u8,
+        /// The content within the heading
+        children: Vec<WikitextSimplifiedNode>,
+    },
     /// An internal wiki link
     Link {
         /// The display text of the link
@@ -216,6 +223,7 @@ impl WikitextSimplifiedNode {
             Self::Fragment { .. } => "fragment",
             Self::Template { .. } => "template",
             Self::TemplateParameterUse { .. } => "template-parameter-use",
+            Self::Heading { .. } => "heading",
             Self::Link { .. } => "link",
             Self::ExtLink { .. } => "ext-link",
             Self::Bold { .. } => "bold",
@@ -239,6 +247,7 @@ impl WikitextSimplifiedNode {
     pub fn children(&self) -> Option<&[WikitextSimplifiedNode]> {
         match self {
             Self::Fragment { children } => Some(children),
+            Self::Heading { children, .. } => Some(children),
             Self::Bold { children } => Some(children),
             Self::Italic { children } => Some(children),
             Self::Blockquote { children } => Some(children),
@@ -258,6 +267,7 @@ impl WikitextSimplifiedNode {
     pub fn children_mut(&mut self) -> Option<&mut Vec<WikitextSimplifiedNode>> {
         match self {
             Self::Fragment { children } => Some(children),
+            Self::Heading { children, .. } => Some(children),
             Self::Bold { children } => Some(children),
             Self::Italic { children } => Some(children),
             Self::Blockquote { children } => Some(children),
@@ -479,6 +489,12 @@ pub fn simplify_wikitext_node(
         pwt::Node::MagicWord { .. } => {
             // Making the current assumption that we don't care about these
             return Ok(None);
+        }
+        pwt::Node::Heading { level, nodes, .. } => {
+            return Ok(Some(WSN::Heading {
+                level: *level,
+                children: simplify_wikitext_nodes(wikitext, &nodes)?,
+            }));
         }
         pwt::Node::Bold { .. } | pwt::Node::BoldItalic { .. } | pwt::Node::Italic { .. } => {
             // We can't do anything at this level
