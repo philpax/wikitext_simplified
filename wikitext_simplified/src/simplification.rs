@@ -203,6 +203,8 @@ pub enum WikitextSimplifiedNode {
     Tag {
         /// The name of the tag
         name: String,
+        /// The HTML attributes of the tag
+        attributes: Option<String>,
         /// The content within the tag
         children: Vec<WikitextSimplifiedNode>,
     },
@@ -511,9 +513,17 @@ pub fn simplify_wikitext_nodes(
                 assert_tag_closure_matches(name, "pre")?;
                 root_stack.add_to_children(preformatted)?;
             }
-            pwt::Node::StartTag { name, .. } => {
+            pwt::Node::StartTag {
+                name, start, end, ..
+            } => {
+                // Extract attributes from the tag content, e.g. <div class="foo"> -> class="foo"
+                let tag_content = &wikitext[*start..*end];
+                let closing_bracket_pos = tag_content.find('>').unwrap_or(tag_content.len());
+                let opening_tag = &tag_content[..closing_bracket_pos];
+
                 root_stack.push_layer(WSN::Tag {
                     name: name.to_string(),
+                    attributes: extract_tag_attributes(opening_tag),
                     children: vec![],
                 });
             }
@@ -746,18 +756,26 @@ pub fn simplify_wikitext_node(
             // Temporarily ignore these
             return Ok(None);
         }
-        pwt::Node::Tag { name, .. }
-            if ["nowiki", "references", "gallery", "ref"].contains(&name.as_ref()) =>
-        {
-            // Don't care
-            return Ok(None);
-        }
-        pwt::Node::StartTag { name, .. } if name == "br" => {
-            return Ok(Some(WSN::Newline));
-        }
-        pwt::Node::Tag { name, nodes, .. } => {
+        pwt::Node::Tag {
+            name,
+            nodes,
+            start,
+            end,
+            ..
+        } => {
+            // Special handling for ref tags - ignore them
+            if name == "ref" || name == "references" || name == "gallery" || name == "nowiki" {
+                return Ok(None);
+            }
+
+            // Extract attributes from the opening tag content
+            let tag_content = &wikitext[*start..*end];
+            let closing_bracket_pos = tag_content.find('>').unwrap_or(tag_content.len());
+            let opening_tag = &tag_content[..closing_bracket_pos];
+
             return Ok(Some(WSN::Tag {
                 name: name.to_string(),
+                attributes: extract_tag_attributes(opening_tag),
                 children: simplify_wikitext_nodes(wikitext, nodes)?,
             }));
         }
@@ -874,4 +892,22 @@ impl<'a> RootStack<'a> {
                 end: 0,
             })
     }
+}
+
+/// Helper function to extract attributes from an HTML tag's opening content
+fn extract_tag_attributes(opening_tag: &str) -> Option<String> {
+    opening_tag.find(char::is_whitespace).map(|attr_start| {
+        let attr_str = opening_tag[attr_start..].trim();
+        if attr_str.ends_with('>') {
+            let trimmed = attr_str[..attr_str.len() - 1].trim();
+            // Ensure the attribute string ends with a quote if it starts with one
+            if trimmed.starts_with('"') && !trimmed.ends_with('"') {
+                format!("{}\"", trimmed)
+            } else {
+                trimmed.to_string()
+            }
+        } else {
+            attr_str.to_string()
+        }
+    })
 }

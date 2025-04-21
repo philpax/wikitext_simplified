@@ -79,6 +79,7 @@ fn will_simplify_template_parameter_inside_html_tag() {
         simplified,
         vec![WSN::Tag {
             name: "span".into(),
+            attributes: Some(r#"style="color:#505050;font-size:80%""#.into()),
             children: vec![WSN::TemplateParameterUse {
                 name: "1".into(),
                 default: None,
@@ -312,6 +313,7 @@ fn test_html_tag() {
         simplified,
         vec![WSN::Tag {
             name: "span".into(),
+            attributes: None,
             children: vec![WSN::Text {
                 text: "Hello".into()
             }]
@@ -327,6 +329,7 @@ fn test_html_tag_with_attributes() {
         simplified,
         vec![WSN::Tag {
             name: "span".into(),
+            attributes: Some("style=\"color:red\"".into()),
             children: vec![WSN::Text {
                 text: "Red text".into()
             }]
@@ -651,6 +654,7 @@ end)
         simplified,
         vec![WSN::Tag {
             name: "syntaxhighlight".into(),
+            attributes: Some("line".into()),
             children: vec![
                 WSN::Text {
                     text: "\neffects = {}\n\n-- Make sure to clean up everything on ModuleUnload.\nEvents:Subscribe(\"ModuleUnload\", function()\n\tfor index, effect in ipairs(effects) do\n\t\teffect:Remove()\n\tend\nend)\n".into(),
