@@ -211,10 +211,49 @@ pub enum WikitextSimplifiedNode {
         /// The text content
         text: String,
     },
+    /// A table
+    Table {
+        /// The HTML attributes of the table
+        attributes: String,
+        /// The captions of the table
+        captions: Vec<WikitextSimplifiedTableCaption>,
+        /// The rows of the table
+        rows: Vec<WikitextSimplifiedTableRow>,
+    },
     /// A paragraph break
     ParagraphBreak,
     /// A line break
     Newline,
+}
+/// A caption for a table
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct WikitextSimplifiedTableCaption {
+    /// The HTML attributes of the caption
+    pub attributes: Option<String>,
+    /// The content of the caption
+    pub content: Vec<WikitextSimplifiedNode>,
+}
+/// A row in a table
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct WikitextSimplifiedTableRow {
+    /// The HTML attributes of the row
+    pub attributes: Option<String>,
+    /// The cells in the row
+    pub cells: Vec<WikitextSimplifiedTableCell>,
+}
+/// A cell in a table
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct WikitextSimplifiedTableCell {
+    /// The HTML attributes of the cell
+    pub attributes: Option<String>,
+    /// The content of the cell
+    pub content: Vec<WikitextSimplifiedNode>,
 }
 impl WikitextSimplifiedNode {
     /// Returns the type of this node.
@@ -235,6 +274,7 @@ impl WikitextSimplifiedNode {
             Self::Preformatted { .. } => "preformatted",
             Self::Tag { .. } => "tag",
             Self::Text { .. } => "text",
+            Self::Table { .. } => "table",
             Self::ParagraphBreak => "paragraph-break",
             Self::Newline => "newline",
         }
@@ -554,6 +594,63 @@ pub fn simplify_wikitext_node(
         pwt::Node::Category { .. } | pwt::Node::Comment { .. } | pwt::Node::Image { .. } => {
             // Don't care
             return Ok(None);
+        }
+        pwt::Node::Table {
+            attributes,
+            captions,
+            rows,
+            ..
+        } => {
+            // Convert table attributes to a string
+            let attributes_str = nodes_wikitext(wikitext, attributes);
+
+            // Convert captions
+            let mut simplified_captions = Vec::new();
+            for caption in captions {
+                let caption_attributes = caption
+                    .attributes
+                    .as_ref()
+                    .map(|attrs| nodes_wikitext(wikitext, attrs));
+                let caption_content = simplify_wikitext_nodes(wikitext, &caption.content)?;
+                simplified_captions.push(WikitextSimplifiedTableCaption {
+                    attributes: caption_attributes,
+                    content: caption_content,
+                });
+            }
+
+            // Convert rows
+            let mut simplified_rows = Vec::new();
+            for row in rows {
+                let row_attributes = if !row.attributes.is_empty() {
+                    Some(nodes_wikitext(wikitext, &row.attributes))
+                } else {
+                    None
+                };
+
+                let mut cells = Vec::new();
+                for cell in &row.cells {
+                    let cell_attributes = cell
+                        .attributes
+                        .as_ref()
+                        .map(|attrs| nodes_wikitext(wikitext, attrs));
+                    let cell_content = simplify_wikitext_nodes(wikitext, &cell.content)?;
+                    cells.push(WikitextSimplifiedTableCell {
+                        attributes: cell_attributes,
+                        content: cell_content,
+                    });
+                }
+
+                simplified_rows.push(WikitextSimplifiedTableRow {
+                    attributes: row_attributes,
+                    cells,
+                });
+            }
+
+            return Ok(Some(WSN::Table {
+                attributes: attributes_str,
+                captions: simplified_captions,
+                rows: simplified_rows,
+            }));
         }
         pwt::Node::DefinitionList { .. }
         | pwt::Node::OrderedList { .. }

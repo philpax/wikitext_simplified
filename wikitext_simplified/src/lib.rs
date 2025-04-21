@@ -15,6 +15,7 @@ mod simplification;
 pub use simplification::{
     simplify_wikitext_node, simplify_wikitext_nodes, NodeStructureError, SimplificationError,
     SimplificationErrorContext, TemplateParameter, WikitextSimplifiedNode,
+    WikitextSimplifiedTableCaption, WikitextSimplifiedTableCell, WikitextSimplifiedTableRow,
 };
 
 #[cfg(test)]

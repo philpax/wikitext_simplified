@@ -490,3 +490,82 @@ fn test_mismatched_tags() {
         panic!("Expected TagClosureMismatch error");
     }
 }
+
+#[test]
+fn test_table_conversion() {
+    let wikitext = r#"{| class="wikitable"
+|+ Caption
+|-
+! Header 1 !! Header 2
+|-
+| Cell 1 || Cell 2
+|-
+| Cell 3 || Cell 4
+|}"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::Table {
+            attributes: "class=\"wikitable\"".into(),
+            captions: vec![WikitextSimplifiedTableCaption {
+                attributes: None,
+                content: vec![WSN::Text {
+                    text: "Caption".into()
+                }]
+            }],
+            rows: vec![
+                WikitextSimplifiedTableRow {
+                    attributes: None,
+                    cells: vec![
+                        WikitextSimplifiedTableCell {
+                            attributes: None,
+                            content: vec![WSN::Text {
+                                text: "Header 1".into()
+                            }]
+                        },
+                        WikitextSimplifiedTableCell {
+                            attributes: None,
+                            content: vec![WSN::Text {
+                                text: "Header 2".into()
+                            }]
+                        }
+                    ]
+                },
+                WikitextSimplifiedTableRow {
+                    attributes: None,
+                    cells: vec![
+                        WikitextSimplifiedTableCell {
+                            attributes: None,
+                            content: vec![WSN::Text {
+                                text: "Cell 1".into()
+                            }]
+                        },
+                        WikitextSimplifiedTableCell {
+                            attributes: None,
+                            content: vec![WSN::Text {
+                                text: "Cell 2".into()
+                            }]
+                        }
+                    ]
+                },
+                WikitextSimplifiedTableRow {
+                    attributes: None,
+                    cells: vec![
+                        WikitextSimplifiedTableCell {
+                            attributes: None,
+                            content: vec![WSN::Text {
+                                text: "Cell 3".into()
+                            }]
+                        },
+                        WikitextSimplifiedTableCell {
+                            attributes: None,
+                            content: vec![WSN::Text {
+                                text: "Cell 4".into()
+                            }]
+                        }
+                    ]
+                }
+            ]
+        }]
+    );
+}
