@@ -390,6 +390,23 @@ pub fn simplify_wikitext_nodes(
     use WikitextSimplifiedNode as WSN;
     let mut root_stack = RootStack::new(wikitext);
 
+    // Awful hack to deal with templates: special-case single start/end tags and preserve them as texts
+    if nodes.len() == 1 {
+        match &nodes[0] {
+            pwt::Node::StartTag { .. } => {
+                return Ok(vec![WSN::Text {
+                    text: nodes_wikitext(wikitext, nodes),
+                }]);
+            }
+            pwt::Node::EndTag { .. } => {
+                return Ok(vec![WSN::Text {
+                    text: nodes_wikitext(wikitext, nodes),
+                }]);
+            }
+            _ => {}
+        }
+    }
+
     for node in nodes {
         root_stack.set_current_node(node);
         match node {

@@ -664,3 +664,27 @@ fn can_handle_horizontal_divider() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(simplified, vec![WSN::HorizontalDivider]);
 }
+
+#[test]
+fn returns_verbatim_texts_for_unclosed_single_tags() {
+    {
+        let wikitext = r#"<font size="3">"#;
+        let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+        assert_eq!(
+            simplified,
+            vec![WSN::Text {
+                text: r#"<font size="3">"#.into()
+            }]
+        );
+    }
+    {
+        let wikitext = r#"</font>"#;
+        let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+        assert_eq!(
+            simplified,
+            vec![WSN::Text {
+                text: r#"</font>"#.into()
+            }]
+        );
+    }
+}
