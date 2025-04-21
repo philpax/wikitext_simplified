@@ -657,3 +657,10 @@ end)
         }]
     );
 }
+
+#[test]
+fn can_handle_horizontal_divider() {
+    let wikitext = "----";
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(simplified, vec![WSN::HorizontalDivider]);
+}

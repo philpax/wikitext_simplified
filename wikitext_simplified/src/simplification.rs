@@ -225,6 +225,8 @@ pub enum WikitextSimplifiedNode {
         /// The target page of the redirect
         target: String,
     },
+    /// A horizontal divider
+    HorizontalDivider,
     /// A paragraph break
     ParagraphBreak,
     /// A line break
@@ -281,6 +283,7 @@ impl WikitextSimplifiedNode {
             Self::Text { .. } => "text",
             Self::Table { .. } => "table",
             Self::Redirect { .. } => "redirect",
+            Self::HorizontalDivider => "horizontal-divider",
             Self::ParagraphBreak => "paragraph-break",
             Self::Newline => "newline",
         }
@@ -310,6 +313,7 @@ impl WikitextSimplifiedNode {
             | Self::Text { .. }
             | Self::Table { .. }
             | Self::Redirect { .. }
+            | Self::HorizontalDivider
             | Self::ParagraphBreak
             | Self::Newline => None,
         }
@@ -339,6 +343,7 @@ impl WikitextSimplifiedNode {
             | Self::Text { .. }
             | Self::Table { .. }
             | Self::Redirect { .. }
+            | Self::HorizontalDivider
             | Self::ParagraphBreak
             | Self::Newline => None,
         }
@@ -715,6 +720,9 @@ pub fn simplify_wikitext_node(
             return Ok(Some(WSN::Redirect {
                 target: target.to_string(),
             }));
+        }
+        pwt::Node::HorizontalDivider { .. } => {
+            return Ok(Some(WSN::HorizontalDivider));
         }
         _ => {}
     }
