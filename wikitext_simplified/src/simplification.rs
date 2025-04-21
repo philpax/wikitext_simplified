@@ -141,7 +141,7 @@ pub enum WikitextSimplifiedNode {
         /// The name of the parameter
         name: String,
         /// Default, if available
-        default: Option<Box<WikitextSimplifiedNode>>,
+        default: Option<Vec<WikitextSimplifiedNode>>,
     },
     /// A heading node
     Heading {
@@ -697,18 +697,12 @@ pub fn simplify_wikitext_node(
             }));
         }
         pwt::Node::Parameter { name, default, .. } => {
-            let default = match default {
-                Some(default) => {
-                    let default_nodes = simplify_wikitext_nodes(wikitext, default)?;
-                    assert!(default_nodes.len() == 1);
-                    Some(Box::new(default_nodes[0].clone()))
-                }
-                None => None,
-            };
-
             return Ok(Some(WSN::TemplateParameterUse {
                 name: nodes_inner_text(name),
-                default,
+                default: default
+                    .as_deref()
+                    .map(|nodes| simplify_wikitext_nodes(wikitext, nodes))
+                    .transpose()?,
             }));
         }
         pwt::Node::Redirect { target, .. } => {

@@ -61,10 +61,10 @@ fn will_simplify_nested_template_parameters() {
         simplified,
         vec![WSN::TemplateParameterUse {
             name: "description".into(),
-            default: Some(Box::new(WSN::TemplateParameterUse {
+            default: Some(vec![WSN::TemplateParameterUse {
                 name: "file_name".into(),
                 default: None,
-            })),
+            }]),
         }]
     );
 }
@@ -579,5 +579,55 @@ fn test_redirect() {
         vec![WSN::Redirect {
             target: "Target Page".into()
         }]
+    );
+}
+
+#[test]
+fn can_handle_nested_defaults_in_template_parameters() {
+    let wikitext = r#"[[Lua/{{{1}}}/{{{2}}}/Functions/{{{3}}}|{{{4|{{{2}}}:{{{3}}}}}}]]"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    // This is really a bit busted, but I can see the argument for parsing like this:
+    // it doesn't make sense to resolve the outer tags when the parameters are unhygenic
+    // text replacements. I suspect the best way to handle this is to apply the parameter
+    // substitutions and then reparse the result.
+    assert_eq!(
+        simplified,
+        vec![
+            WSN::Text {
+                text: "[[Lua/".to_string()
+            },
+            WSN::TemplateParameterUse {
+                name: "1".into(),
+                default: None
+            },
+            WSN::Text { text: "/".into() },
+            WSN::TemplateParameterUse {
+                name: "2".into(),
+                default: None
+            },
+            WSN::Text {
+                text: "/Functions/".into()
+            },
+            WSN::TemplateParameterUse {
+                name: "3".into(),
+                default: None
+            },
+            WSN::Text { text: "|".into() },
+            WSN::TemplateParameterUse {
+                name: "4".into(),
+                default: Some(vec![
+                    WSN::TemplateParameterUse {
+                        name: "2".into(),
+                        default: None
+                    },
+                    WSN::Text { text: ":".into() },
+                    WSN::TemplateParameterUse {
+                        name: "3".into(),
+                        default: None
+                    }
+                ])
+            },
+            WSN::Text { text: "]]".into() }
+        ]
     );
 }
