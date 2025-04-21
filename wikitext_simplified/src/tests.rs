@@ -1,3 +1,5 @@
+use crate::simplification::WikitextSimplifiedListItem;
+
 use super::*;
 
 use std::sync::LazyLock;
@@ -687,4 +689,63 @@ fn returns_verbatim_texts_for_unclosed_single_tags() {
             }]
         );
     }
+}
+
+#[test]
+fn can_handle_lists_underneath_headers() {
+    let wikitext = r#"==0.1.4a (Available on the publicbeta branch)==
+
+====New features====
+
+* Shared
+** Overhauled the logging system to support unicode (the first of many unicode additions to come)
+** Added console command for profiling Lua modules; usage: profiler_sample {{Arg|number_of_seconds}}"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![
+            WSN::Heading {
+                level: 2,
+                children: vec![WSN::Text {
+                    text: "0.1.4a (Available on the publicbeta branch)".into()
+                }]
+            },
+            WSN::Heading {
+                level: 4,
+                children: vec![WSN::Text {
+                    text: "New features".into()
+                }]
+            },
+            WSN::UnorderedList {
+                items: vec![WikitextSimplifiedListItem {
+                    content: vec![
+                        WSN::Text { text: "Shared".into() },
+                        WSN::UnorderedList {
+                            items: vec![
+                                WikitextSimplifiedListItem {
+                                    content: vec![WSN::Text {
+                                        text: "Overhauled the logging system to support unicode (the first of many unicode additions to come)".into()
+                                    }]
+                                },
+                                WikitextSimplifiedListItem {
+                                    content: vec![
+                                        WSN::Text {
+                                            text: "Added console command for profiling Lua modules; usage: profiler_sample ".into()
+                                        },
+                                        WSN::Template {
+                                            name: "Arg".into(),
+                                            children: vec![TemplateParameter {
+                                                name: "1".into(),
+                                                value: "number_of_seconds".into()
+                                            }]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }]
+            }
+        ]
+    );
 }

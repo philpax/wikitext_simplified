@@ -220,6 +220,16 @@ pub enum WikitextSimplifiedNode {
         /// The rows of the table
         rows: Vec<WikitextSimplifiedTableRow>,
     },
+    /// An ordered list
+    OrderedList {
+        /// The items in the list
+        items: Vec<WikitextSimplifiedListItem>,
+    },
+    /// An unordered list
+    UnorderedList {
+        /// The items in the list
+        items: Vec<WikitextSimplifiedListItem>,
+    },
     /// A redirect node
     Redirect {
         /// The target page of the redirect
@@ -262,6 +272,14 @@ pub struct WikitextSimplifiedTableCell {
     /// The content of the cell
     pub content: Vec<WikitextSimplifiedNode>,
 }
+/// A list item
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct WikitextSimplifiedListItem {
+    /// The content of the list item
+    pub content: Vec<WikitextSimplifiedNode>,
+}
 impl WikitextSimplifiedNode {
     /// Returns the type of this node.
     pub fn node_type(&self) -> &'static str {
@@ -282,6 +300,8 @@ impl WikitextSimplifiedNode {
             Self::Tag { .. } => "tag",
             Self::Text { .. } => "text",
             Self::Table { .. } => "table",
+            Self::OrderedList { .. } => "ordered-list",
+            Self::UnorderedList { .. } => "unordered-list",
             Self::Redirect { .. } => "redirect",
             Self::HorizontalDivider => "horizontal-divider",
             Self::ParagraphBreak => "paragraph-break",
@@ -312,6 +332,8 @@ impl WikitextSimplifiedNode {
             | Self::ExtLink { .. }
             | Self::Text { .. }
             | Self::Table { .. }
+            | Self::OrderedList { .. }
+            | Self::UnorderedList { .. }
             | Self::Redirect { .. }
             | Self::HorizontalDivider
             | Self::ParagraphBreak
@@ -342,6 +364,8 @@ impl WikitextSimplifiedNode {
             | Self::ExtLink { .. }
             | Self::Text { .. }
             | Self::Table { .. }
+            | Self::OrderedList { .. }
+            | Self::UnorderedList { .. }
             | Self::Redirect { .. }
             | Self::HorizontalDivider
             | Self::ParagraphBreak
@@ -651,7 +675,7 @@ pub fn simplify_wikitext_node(
             let attributes_str = nodes_wikitext(wikitext, attributes);
 
             // Convert captions
-            let mut simplified_captions = Vec::new();
+            let mut simplified_captions = vec![];
             for caption in captions {
                 let caption_attributes = caption
                     .attributes
@@ -665,7 +689,7 @@ pub fn simplify_wikitext_node(
             }
 
             // Convert rows
-            let mut simplified_rows = Vec::new();
+            let mut simplified_rows = vec![];
             for row in rows {
                 let row_attributes = if !row.attributes.is_empty() {
                     Some(nodes_wikitext(wikitext, &row.attributes))
@@ -673,7 +697,7 @@ pub fn simplify_wikitext_node(
                     None
                 };
 
-                let mut cells = Vec::new();
+                let mut cells = vec![];
                 for cell in &row.cells {
                     let cell_attributes = cell
                         .attributes
@@ -698,9 +722,27 @@ pub fn simplify_wikitext_node(
                 rows: simplified_rows,
             }));
         }
-        pwt::Node::DefinitionList { .. }
-        | pwt::Node::OrderedList { .. }
-        | pwt::Node::UnorderedList { .. } => {
+        pwt::Node::OrderedList { items, .. } => {
+            let mut simplified_items = vec![];
+            for item in items {
+                let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
+                simplified_items.push(WikitextSimplifiedListItem { content });
+            }
+            return Ok(Some(WSN::OrderedList {
+                items: simplified_items,
+            }));
+        }
+        pwt::Node::UnorderedList { items, .. } => {
+            let mut simplified_items = vec![];
+            for item in items {
+                let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
+                simplified_items.push(WikitextSimplifiedListItem { content });
+            }
+            return Ok(Some(WSN::UnorderedList {
+                items: simplified_items,
+            }));
+        }
+        pwt::Node::DefinitionList { .. } => {
             // Temporarily ignore these
             return Ok(None);
         }
