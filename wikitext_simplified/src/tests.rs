@@ -389,6 +389,20 @@ fn test_small_text() {
 }
 
 #[test]
+fn test_preformatted() {
+    let wikitext = "<pre>preformatted text</pre>";
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::Preformatted {
+            children: vec![WSN::Text {
+                text: "preformatted text".into()
+            }]
+        }]
+    );
+}
+
+#[test]
 fn test_paragraph_breaks() {
     let wikitext = "Paragraph 1\n\nParagraph 2";
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();

@@ -393,6 +393,14 @@ pub fn simplify_wikitext_nodes(
                 assert_tag_closure_matches(name, "small")?;
                 root_stack.add_to_children(small)?;
             }
+            pwt::Node::StartTag { name, .. } if name == "pre" => {
+                root_stack.push_layer(WSN::Preformatted { children: vec![] });
+            }
+            pwt::Node::EndTag { name, .. } if name == "pre" => {
+                let preformatted = root_stack.pop_layer()?;
+                assert_tag_closure_matches(name, "pre")?;
+                root_stack.add_to_children(preformatted)?;
+            }
             pwt::Node::StartTag { name, .. } => {
                 root_stack.push_layer(WSN::Tag {
                     name: name.to_string(),
