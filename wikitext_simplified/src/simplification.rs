@@ -691,6 +691,12 @@ pub fn simplify_wikitext_node(
         pwt::Node::StartTag { name, .. } if name == "br" => {
             return Ok(Some(WSN::Newline));
         }
+        pwt::Node::Tag { name, nodes, .. } => {
+            return Ok(Some(WSN::Tag {
+                name: name.to_string(),
+                children: simplify_wikitext_nodes(wikitext, nodes)?,
+            }));
+        }
         pwt::Node::Preformatted { nodes, .. } => {
             return Ok(Some(WSN::Preformatted {
                 children: simplify_wikitext_nodes(wikitext, nodes)?,

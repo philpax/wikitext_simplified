@@ -631,3 +631,29 @@ fn can_handle_nested_defaults_in_template_parameters() {
         ]
     );
 }
+
+#[test]
+fn can_handle_conventional_tags() {
+    let wikitext = r#"<syntaxhighlight line>
+effects = {}
+
+-- Make sure to clean up everything on ModuleUnload.
+Events:Subscribe("ModuleUnload", function()
+	for index, effect in ipairs(effects) do
+		effect:Remove()
+	end
+end)
+</syntaxhighlight>"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::Tag {
+            name: "syntaxhighlight".into(),
+            children: vec![
+                WSN::Text {
+                    text: "\neffects = {}\n\n-- Make sure to clean up everything on ModuleUnload.\nEvents:Subscribe(\"ModuleUnload\", function()\n\tfor index, effect in ipairs(effects) do\n\t\teffect:Remove()\n\tend\nend)\n".into(),
+                }
+            ]
+        }]
+    );
+}
