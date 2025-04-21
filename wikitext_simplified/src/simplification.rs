@@ -366,7 +366,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "blockquote" => {
                 let blockquote = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, &blockquote)?;
+                assert_tag_closure_matches(name, "blockquote")?;
                 root_stack.add_to_children(blockquote)?;
             }
             pwt::Node::StartTag { name, .. } if name == "sup" => {
@@ -374,7 +374,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "sup" => {
                 let superscript = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, &superscript)?;
+                assert_tag_closure_matches(name, "sup")?;
                 root_stack.add_to_children(superscript)?;
             }
             pwt::Node::StartTag { name, .. } if name == "sub" => {
@@ -382,7 +382,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "sub" => {
                 let subscript = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, &subscript)?;
+                assert_tag_closure_matches(name, "sub")?;
                 root_stack.add_to_children(subscript)?;
             }
             pwt::Node::StartTag { name, .. } if name == "small" => {
@@ -390,7 +390,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } if name == "small" => {
                 let small = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, &small)?;
+                assert_tag_closure_matches(name, "small")?;
                 root_stack.add_to_children(small)?;
             }
             pwt::Node::StartTag { name, .. } => {
@@ -401,7 +401,20 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::EndTag { name, .. } => {
                 let tag = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, &tag)?;
+                if let WSN::Tag { name: tag_name, .. } = &tag {
+                    assert_tag_closure_matches(name, &tag_name)?;
+                } else {
+                    return Err(SimplificationError::InvalidNodeStructure {
+                        kind: NodeStructureError::TagClosureMismatch {
+                            expected: name.to_string(),
+                            actual: tag.node_type().to_string(),
+                        },
+                        context: SimplificationErrorContext::from_node_metadata(
+                            wikitext,
+                            &NodeMetadata::for_node(node),
+                        ),
+                    });
+                }
                 root_stack.add_to_children(tag)?;
             }
             other => {
@@ -414,14 +427,14 @@ pub fn simplify_wikitext_nodes(
 
     fn assert_tag_closure_matches(
         end_tag_name: &str,
-        last_node: &WikitextSimplifiedNode,
+        last_node_name: &str,
     ) -> Result<(), SimplificationError> {
-        match last_node {
-            WSN::Tag { name, .. } if name == end_tag_name => Ok(()),
+        match last_node_name {
+            name if name == end_tag_name => Ok(()),
             _ => Err(SimplificationError::InvalidNodeStructure {
                 kind: NodeStructureError::TagClosureMismatch {
                     expected: end_tag_name.to_string(),
-                    actual: format!("{last_node:?}"),
+                    actual: last_node_name.to_string(),
                 },
                 context: SimplificationErrorContext {
                     // Filling this in requires us to have the original bounds and wikitext,
