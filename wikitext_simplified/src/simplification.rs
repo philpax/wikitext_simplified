@@ -520,7 +520,7 @@ pub fn simplify_wikitext_nodes(
             pwt::Node::EndTag { name, .. } => {
                 let tag = root_stack.pop_layer()?;
                 if let WSN::Tag { name: tag_name, .. } = &tag {
-                    assert_tag_closure_matches(name, &tag_name)?;
+                    assert_tag_closure_matches(name, tag_name)?;
                 } else {
                     return Err(SimplificationError::InvalidNodeStructure {
                         kind: NodeStructureError::TagClosureMismatch {
