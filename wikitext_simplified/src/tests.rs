@@ -569,3 +569,15 @@ fn test_table_conversion() {
         }]
     );
 }
+
+#[test]
+fn test_redirect() {
+    let wikitext = "#REDIRECT [[Target Page]]";
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::Redirect {
+            target: "Target Page".into()
+        }]
+    );
+}

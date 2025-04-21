@@ -220,6 +220,11 @@ pub enum WikitextSimplifiedNode {
         /// The rows of the table
         rows: Vec<WikitextSimplifiedTableRow>,
     },
+    /// A redirect node
+    Redirect {
+        /// The target page of the redirect
+        target: String,
+    },
     /// A paragraph break
     ParagraphBreak,
     /// A line break
@@ -275,6 +280,7 @@ impl WikitextSimplifiedNode {
             Self::Tag { .. } => "tag",
             Self::Text { .. } => "text",
             Self::Table { .. } => "table",
+            Self::Redirect { .. } => "redirect",
             Self::ParagraphBreak => "paragraph-break",
             Self::Newline => "newline",
         }
@@ -296,12 +302,14 @@ impl WikitextSimplifiedNode {
             Self::Small { children } => Some(children),
             Self::Preformatted { children } => Some(children),
             Self::Tag { children, .. } => Some(children),
+
             Self::Template { .. }
             | Self::TemplateParameterUse { .. }
             | Self::Link { .. }
             | Self::ExtLink { .. }
             | Self::Text { .. }
             | Self::Table { .. }
+            | Self::Redirect { .. }
             | Self::ParagraphBreak
             | Self::Newline => None,
         }
@@ -323,12 +331,14 @@ impl WikitextSimplifiedNode {
             Self::Small { children } => Some(children),
             Self::Preformatted { children } => Some(children),
             Self::Tag { children, .. } => Some(children),
+
             Self::Template { .. }
             | Self::TemplateParameterUse { .. }
             | Self::Link { .. }
             | Self::ExtLink { .. }
             | Self::Text { .. }
             | Self::Table { .. }
+            | Self::Redirect { .. }
             | Self::ParagraphBreak
             | Self::Newline => None,
         }
@@ -699,6 +709,11 @@ pub fn simplify_wikitext_node(
             return Ok(Some(WSN::TemplateParameterUse {
                 name: nodes_inner_text(name),
                 default,
+            }));
+        }
+        pwt::Node::Redirect { target, .. } => {
+            return Ok(Some(WSN::Redirect {
+                target: target.to_string(),
             }));
         }
         _ => {}
