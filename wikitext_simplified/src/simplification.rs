@@ -296,7 +296,14 @@ impl WikitextSimplifiedNode {
             Self::Small { children } => Some(children),
             Self::Preformatted { children } => Some(children),
             Self::Tag { children, .. } => Some(children),
-            _ => None,
+            Self::Template { .. }
+            | Self::TemplateParameterUse { .. }
+            | Self::Link { .. }
+            | Self::ExtLink { .. }
+            | Self::Text { .. }
+            | Self::Table { .. }
+            | Self::ParagraphBreak
+            | Self::Newline => None,
         }
     }
 
@@ -316,7 +323,14 @@ impl WikitextSimplifiedNode {
             Self::Small { children } => Some(children),
             Self::Preformatted { children } => Some(children),
             Self::Tag { children, .. } => Some(children),
-            _ => None,
+            Self::Template { .. }
+            | Self::TemplateParameterUse { .. }
+            | Self::Link { .. }
+            | Self::ExtLink { .. }
+            | Self::Text { .. }
+            | Self::Table { .. }
+            | Self::ParagraphBreak
+            | Self::Newline => None,
         }
     }
 
