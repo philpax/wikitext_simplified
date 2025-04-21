@@ -898,8 +898,8 @@ impl<'a> RootStack<'a> {
 fn extract_tag_attributes(opening_tag: &str) -> Option<String> {
     opening_tag.find(char::is_whitespace).map(|attr_start| {
         let attr_str = opening_tag[attr_start..].trim();
-        if attr_str.ends_with('>') {
-            let trimmed = attr_str[..attr_str.len() - 1].trim();
+        if let Some(stripped) = attr_str.strip_suffix('>') {
+            let trimmed = stripped.trim();
             // Ensure the attribute string ends with a quote if it starts with one
             if trimmed.starts_with('"') && !trimmed.ends_with('"') {
                 format!("{}\"", trimmed)
