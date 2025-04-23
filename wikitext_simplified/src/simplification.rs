@@ -421,7 +421,7 @@ impl WikitextSimplifiedNode {
             Self::TemplateParameterUse { name, default } => {
                 let mut result = format!("{{{{{}}}}}", name);
                 if let Some(default_nodes) = default {
-                    result.push_str("|");
+                    result.push('|');
                     result.push_str(
                         &default_nodes
                             .iter()
@@ -571,7 +571,7 @@ impl WikitextSimplifiedNode {
                     }
 
                     for cell in &row.cells {
-                        result.push_str("|");
+                        result.push('|');
                         if let Some(attrs) = &cell.attributes {
                             result.push_str(&format!(" {}", attrs));
                         }
@@ -592,7 +592,7 @@ impl WikitextSimplifiedNode {
             Self::OrderedList { items } => {
                 let mut result = String::new();
                 for item in items {
-                    result.push_str("#");
+                    result.push('#');
                     result.push_str(
                         &item
                             .content
@@ -607,7 +607,7 @@ impl WikitextSimplifiedNode {
             Self::UnorderedList { items } => {
                 let mut result = String::new();
                 for item in items {
-                    result.push_str("*");
+                    result.push('*');
                     result.push_str(
                         &item
                             .content
