@@ -753,3 +753,272 @@ fn can_handle_lists_underneath_headers() {
         ]
     );
 }
+
+#[test]
+fn test_to_wikitext_basic() {
+    let node = WSN::Text {
+        text: "Hello, world!".into(),
+    };
+    assert_eq!(node.to_wikitext(), "Hello, world!");
+}
+
+#[test]
+fn test_to_wikitext_bold() {
+    let node = WSN::Bold {
+        children: vec![WSN::Text {
+            text: "bold text".into(),
+        }],
+    };
+    assert_eq!(node.to_wikitext(), "'''bold text'''");
+}
+
+#[test]
+fn test_to_wikitext_italic() {
+    let node = WSN::Italic {
+        children: vec![WSN::Text {
+            text: "italic text".into(),
+        }],
+    };
+    assert_eq!(node.to_wikitext(), "''italic text''");
+}
+
+#[test]
+fn test_to_wikitext_bold_italic() {
+    let node = WSN::Bold {
+        children: vec![WSN::Italic {
+            children: vec![WSN::Text {
+                text: "bold italic text".into(),
+            }],
+        }],
+    };
+    assert_eq!(node.to_wikitext(), "'''''bold italic text'''''");
+}
+
+#[test]
+fn test_to_wikitext_link() {
+    let node = WSN::Link {
+        text: "Main Page".into(),
+        title: "Main Page".into(),
+    };
+    assert_eq!(node.to_wikitext(), "[[Main Page]]");
+
+    let node = WSN::Link {
+        text: "Home".into(),
+        title: "Main Page".into(),
+    };
+    assert_eq!(node.to_wikitext(), "[[Main Page|Home]]");
+}
+
+#[test]
+fn test_to_wikitext_ext_link() {
+    let node = WSN::ExtLink {
+        link: "https://example.com".into(),
+        text: None,
+    };
+    assert_eq!(node.to_wikitext(), "[https://example.com]");
+
+    let node = WSN::ExtLink {
+        link: "https://example.com".into(),
+        text: Some("Example".into()),
+    };
+    assert_eq!(node.to_wikitext(), "[https://example.com Example]");
+}
+
+#[test]
+fn test_to_wikitext_template() {
+    let node = WSN::Template {
+        name: "Template".into(),
+        children: vec![],
+    };
+    assert_eq!(node.to_wikitext(), "{{Template}}");
+
+    let node = WSN::Template {
+        name: "Template".into(),
+        children: vec![
+            TemplateParameter {
+                name: "param1".into(),
+                value: "value1".into(),
+            },
+            TemplateParameter {
+                name: "param2".into(),
+                value: "value2".into(),
+            },
+        ],
+    };
+    assert_eq!(
+        node.to_wikitext(),
+        "{{Template|param1=value1|param2=value2}}"
+    );
+
+    let node = WSN::Template {
+        name: "Template".into(),
+        children: vec![
+            TemplateParameter {
+                name: "1".into(),
+                value: "value1".into(),
+            },
+            TemplateParameter {
+                name: "2".into(),
+                value: "value2".into(),
+            },
+        ],
+    };
+    assert_eq!(node.to_wikitext(), "{{Template|value1|value2}}");
+}
+
+#[test]
+fn test_to_wikitext_heading() {
+    let node = WSN::Heading {
+        level: 2,
+        children: vec![WSN::Text {
+            text: "Heading".into(),
+        }],
+    };
+    assert_eq!(node.to_wikitext(), "== Heading ==");
+}
+
+#[test]
+fn test_to_wikitext_tag() {
+    let node = WSN::Tag {
+        name: "span".into(),
+        attributes: None,
+        children: vec![WSN::Text {
+            text: "Hello".into(),
+        }],
+    };
+    assert_eq!(node.to_wikitext(), "<span>Hello</span>");
+
+    let node = WSN::Tag {
+        name: "span".into(),
+        attributes: Some("style=\"color:red\"".into()),
+        children: vec![WSN::Text {
+            text: "Red text".into(),
+        }],
+    };
+    assert_eq!(
+        node.to_wikitext(),
+        "<span style=\"color:red\">Red text</span>"
+    );
+}
+
+#[test]
+fn test_to_wikitext_table() {
+    let node = WSN::Table {
+        attributes: "class=\"wikitable\"".into(),
+        captions: vec![WikitextSimplifiedTableCaption {
+            attributes: None,
+            content: vec![WSN::Text {
+                text: "Caption".into(),
+            }],
+        }],
+        rows: vec![WikitextSimplifiedTableRow {
+            attributes: None,
+            cells: vec![
+                WikitextSimplifiedTableCell {
+                    attributes: None,
+                    content: vec![WSN::Text {
+                        text: "Cell 1".into(),
+                    }],
+                },
+                WikitextSimplifiedTableCell {
+                    attributes: None,
+                    content: vec![WSN::Text {
+                        text: "Cell 2".into(),
+                    }],
+                },
+            ],
+        }],
+    };
+    assert_eq!(
+        node.to_wikitext(),
+        "{|class=\"wikitable\"\n|+Caption\n|-\n|Cell 1|Cell 2\n|}"
+    );
+}
+
+#[test]
+fn test_to_wikitext_list() {
+    let node = WSN::OrderedList {
+        items: vec![
+            WikitextSimplifiedListItem {
+                content: vec![WSN::Text {
+                    text: "Item 1".into(),
+                }],
+            },
+            WikitextSimplifiedListItem {
+                content: vec![WSN::Text {
+                    text: "Item 2".into(),
+                }],
+            },
+        ],
+    };
+    assert_eq!(node.to_wikitext(), "#Item 1\n#Item 2\n");
+
+    let node = WSN::UnorderedList {
+        items: vec![
+            WikitextSimplifiedListItem {
+                content: vec![WSN::Text {
+                    text: "Item 1".into(),
+                }],
+            },
+            WikitextSimplifiedListItem {
+                content: vec![WSN::Text {
+                    text: "Item 2".into(),
+                }],
+            },
+        ],
+    };
+    assert_eq!(node.to_wikitext(), "*Item 1\n*Item 2\n");
+}
+
+#[test]
+fn test_to_wikitext_redirect() {
+    let node = WSN::Redirect {
+        target: "Target Page".into(),
+    };
+    assert_eq!(node.to_wikitext(), "#REDIRECT [[Target Page]]");
+}
+
+#[test]
+fn test_to_wikitext_special_nodes() {
+    assert_eq!(WSN::HorizontalDivider.to_wikitext(), "----");
+    assert_eq!(WSN::ParagraphBreak.to_wikitext(), "\n\n");
+    assert_eq!(WSN::Newline.to_wikitext(), "\n");
+}
+
+#[test]
+fn test_to_wikitext_nested() {
+    let node = WSN::Fragment {
+        children: vec![
+            WSN::Text {
+                text: "This is ".into(),
+            },
+            WSN::Bold {
+                children: vec![WSN::Text {
+                    text: "bold".into(),
+                }],
+            },
+            WSN::Text {
+                text: ", this is ".into(),
+            },
+            WSN::Italic {
+                children: vec![WSN::Text {
+                    text: "italic".into(),
+                }],
+            },
+            WSN::Text {
+                text: ", and this is ".into(),
+            },
+            WSN::Bold {
+                children: vec![WSN::Italic {
+                    children: vec![WSN::Text {
+                        text: "bold italic".into(),
+                    }],
+                }],
+            },
+        ],
+    };
+    assert_eq!(
+        node.to_wikitext(),
+        "This is '''bold''', this is ''italic'', and this is '''''bold italic'''''"
+    );
+}

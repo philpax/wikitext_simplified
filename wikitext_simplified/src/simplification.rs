@@ -387,6 +387,246 @@ impl WikitextSimplifiedNode {
             }
         }
     }
+
+    /// Converts this node and its children back into wikitext format.
+    pub fn to_wikitext(&self) -> String {
+        match self {
+            Self::Fragment { children } => {
+                children.iter().map(|child| child.to_wikitext()).collect()
+            }
+            Self::Template { name, children } => {
+                let params = children
+                    .iter()
+                    .map(|param| {
+                        if param.name == "1" {
+                            param.value.clone()
+                        } else if param.name.parse::<usize>().is_ok() {
+                            // For numeric parameters, just use the value
+                            param.value.clone()
+                        } else {
+                            format!("{}={}", param.name, param.value)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("|");
+                format!(
+                    "{{{{{}}}}}",
+                    if params.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{}|{}", name, params)
+                    }
+                )
+            }
+            Self::TemplateParameterUse { name, default } => {
+                let mut result = format!("{{{{{}}}}}", name);
+                if let Some(default_nodes) = default {
+                    result.push_str("|");
+                    result.push_str(
+                        &default_nodes
+                            .iter()
+                            .map(|node| node.to_wikitext())
+                            .collect::<String>(),
+                    );
+                }
+                result
+            }
+            Self::Heading { level, children } => {
+                let equals = "=".repeat(*level as usize);
+                format!(
+                    "{} {} {}",
+                    equals,
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>(),
+                    equals
+                )
+            }
+            Self::Link { text, title } => {
+                if text == title {
+                    format!("[[{}]]", title)
+                } else {
+                    format!("[[{}|{}]]", title, text)
+                }
+            }
+            Self::ExtLink { link, text } => {
+                if let Some(text) = text {
+                    format!("[{} {}]", link, text)
+                } else {
+                    format!("[{}]", link)
+                }
+            }
+            Self::Bold { children } => {
+                format!(
+                    "'''{}'''",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Italic { children } => {
+                format!(
+                    "''{}''",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Blockquote { children } => {
+                format!(
+                    "<blockquote>{}</blockquote>",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Superscript { children } => {
+                format!(
+                    "<sup>{}</sup>",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Subscript { children } => {
+                format!(
+                    "<sub>{}</sub>",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Small { children } => {
+                format!(
+                    "<small>{}</small>",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Preformatted { children } => {
+                format!(
+                    "<pre>{}</pre>",
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>()
+                )
+            }
+            Self::Tag {
+                name,
+                attributes,
+                children,
+            } => {
+                let attrs = attributes.as_deref().unwrap_or("");
+                let space = if attrs.is_empty() { "" } else { " " };
+                format!(
+                    "<{}{}{}>{}</{}>",
+                    name,
+                    space,
+                    attrs,
+                    children
+                        .iter()
+                        .map(|child| child.to_wikitext())
+                        .collect::<String>(),
+                    name
+                )
+            }
+            Self::Text { text } => text.clone(),
+            Self::Table {
+                attributes,
+                captions,
+                rows,
+            } => {
+                let mut result = format!("{{|{}\n", attributes);
+
+                // Add captions
+                for caption in captions {
+                    result.push_str("|+");
+                    if let Some(attrs) = &caption.attributes {
+                        result.push_str(&format!(" {}", attrs));
+                    }
+                    result.push_str(
+                        &caption
+                            .content
+                            .iter()
+                            .map(|node| node.to_wikitext())
+                            .collect::<String>(),
+                    );
+                    result.push('\n');
+                }
+
+                // Add rows
+                for row in rows {
+                    result.push_str("|-\n");
+                    if let Some(attrs) = &row.attributes {
+                        result.push_str(&format!("|{}", attrs));
+                    }
+
+                    for cell in &row.cells {
+                        result.push_str("|");
+                        if let Some(attrs) = &cell.attributes {
+                            result.push_str(&format!(" {}", attrs));
+                        }
+                        result.push_str(
+                            &cell
+                                .content
+                                .iter()
+                                .map(|node| node.to_wikitext())
+                                .collect::<String>(),
+                        );
+                    }
+                    result.push('\n');
+                }
+
+                result.push_str("|}");
+                result
+            }
+            Self::OrderedList { items } => {
+                let mut result = String::new();
+                for item in items {
+                    result.push_str("#");
+                    result.push_str(
+                        &item
+                            .content
+                            .iter()
+                            .map(|node| node.to_wikitext())
+                            .collect::<String>(),
+                    );
+                    result.push('\n');
+                }
+                result
+            }
+            Self::UnorderedList { items } => {
+                let mut result = String::new();
+                for item in items {
+                    result.push_str("*");
+                    result.push_str(
+                        &item
+                            .content
+                            .iter()
+                            .map(|node| node.to_wikitext())
+                            .collect::<String>(),
+                    );
+                    result.push('\n');
+                }
+                result
+            }
+            Self::Redirect { target } => {
+                format!("#REDIRECT [[{}]]", target)
+            }
+            Self::HorizontalDivider => "----".to_string(),
+            Self::ParagraphBreak => "\n\n".to_string(),
+            Self::Newline => "\n".to_string(),
+        }
+    }
 }
 
 /// A parameter for a wikitext template
