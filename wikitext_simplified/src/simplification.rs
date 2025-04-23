@@ -673,6 +673,10 @@ pub fn simplify_wikitext_nodes(
         }
     }
 
+    /// Tags that look like tags but are actually inline elements and should
+    /// not be considered for stack-based tag closure matching.
+    const FAKE_TAGS: [&str; 4] = ["br/", "hr/", "br", "hr"];
+
     for node in nodes {
         root_stack.set_current_node(node);
         match node {
@@ -755,7 +759,7 @@ pub fn simplify_wikitext_nodes(
             }
             pwt::Node::StartTag {
                 name, start, end, ..
-            } => {
+            } if !FAKE_TAGS.contains(&name.as_ref()) => {
                 // Extract attributes from the tag content, e.g. <div class="foo"> -> class="foo"
                 let tag_content = &wikitext[*start..*end];
                 let closing_bracket_pos = tag_content.find('>').unwrap_or(tag_content.len());
@@ -767,7 +771,7 @@ pub fn simplify_wikitext_nodes(
                     children: vec![],
                 });
             }
-            pwt::Node::EndTag { name, .. } => {
+            pwt::Node::EndTag { name, .. } if !FAKE_TAGS.contains(&name.as_ref()) => {
                 let tag = root_stack.pop_layer()?;
                 if let WSN::Tag { name: tag_name, .. } = &tag {
                     assert_tag_closure_matches(name, tag_name)?;
@@ -797,9 +801,10 @@ pub fn simplify_wikitext_nodes(
         end_tag_name: &str,
         last_node_name: &str,
     ) -> Result<(), SimplificationError> {
-        match last_node_name {
-            name if name == end_tag_name => Ok(()),
-            _ => Err(SimplificationError::InvalidNodeStructure {
+        if last_node_name == end_tag_name {
+            return Ok(());
+        }
+        Err(SimplificationError::InvalidNodeStructure {
                 kind: NodeStructureError::TagClosureMismatch {
                     expected: end_tag_name.to_string(),
                     actual: last_node_name.to_string(),
@@ -812,8 +817,7 @@ pub fn simplify_wikitext_nodes(
                     start: 0,
                     end: 0,
                 },
-            }),
-        }
+        })
     }
     root_stack.unwind()
 }
@@ -1040,6 +1044,12 @@ pub fn simplify_wikitext_node(
         }
         pwt::Node::HorizontalDivider { .. } => {
             return Ok(Some(WSN::HorizontalDivider));
+        }
+        pwt::Node::StartTag { name, .. } if name == "hr" || name == "hr/" => {
+            return Ok(Some(WSN::HorizontalDivider));
+        }
+        pwt::Node::StartTag { name, .. } if name == "br" || name == "br/" => {
+            return Ok(Some(WSN::ParagraphBreak));
         }
         _ => {}
     }
