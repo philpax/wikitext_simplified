@@ -134,7 +134,7 @@ pub enum WikitextSimplifiedNode {
         /// The name of the template
         name: String,
         /// The parameters passed to the template
-        children: Vec<TemplateParameter>,
+        parameters: Vec<TemplateParameter>,
     },
     /// A use of a parameter within a template
     TemplateParameterUse {
@@ -394,8 +394,8 @@ impl WikitextSimplifiedNode {
             Self::Fragment { children } => {
                 children.iter().map(|child| child.to_wikitext()).collect()
             }
-            Self::Template { name, children } => {
-                let params = children
+            Self::Template { name, parameters } => {
+                let params = parameters
                     .iter()
                     .map(|param| {
                         if param.name == "1" {
@@ -837,7 +837,7 @@ pub fn simplify_wikitext_node(
             name, parameters, ..
         } => {
             let mut unnamed_parameter_index = 1;
-            let mut children = vec![];
+            let mut new_parameters = vec![];
             for parameter in parameters {
                 let name = if let Some(parameter_name) = &parameter.name {
                     nodes_inner_text(parameter_name)
@@ -859,12 +859,12 @@ pub fn simplify_wikitext_node(
                     .unwrap_or_default();
                 let value = wikitext[value_start..value_end].to_string();
 
-                children.push(TemplateParameter { name, value });
+                new_parameters.push(TemplateParameter { name, value });
             }
 
             return Ok(Some(WSN::Template {
                 name: nodes_inner_text(name),
-                children,
+                parameters: new_parameters,
             }));
         }
         pwt::Node::MagicWord { .. } => {

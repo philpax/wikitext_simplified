@@ -256,7 +256,7 @@ fn test_simple_template() {
         simplified,
         vec![WSN::Template {
             name: "Template".into(),
-            children: vec![]
+            parameters: vec![]
         }]
     );
 }
@@ -269,7 +269,7 @@ fn test_template_with_parameters() {
         simplified,
         vec![WSN::Template {
             name: "Template".into(),
-            children: vec![
+            parameters: vec![
                 TemplateParameter {
                     name: "param1".into(),
                     value: "value1".into()
@@ -291,7 +291,7 @@ fn test_template_with_unnamed_parameters() {
         simplified,
         vec![WSN::Template {
             name: "Template".into(),
-            children: vec![
+            parameters: vec![
                 TemplateParameter {
                     name: "1".into(),
                     value: "value1".into()
@@ -470,7 +470,7 @@ fn test_formatting_in_template() {
         simplified,
         vec![WSN::Template {
             name: "Template".into(),
-            children: vec![TemplateParameter {
+            parameters: vec![TemplateParameter {
                 name: "param".into(),
                 value: "'''bold'''".into()
             }]
@@ -738,7 +738,7 @@ fn can_handle_lists_underneath_headers() {
                                         },
                                         WSN::Template {
                                             name: "Arg".into(),
-                                            children: vec![TemplateParameter {
+                                            parameters: vec![TemplateParameter {
                                                 name: "1".into(),
                                                 value: "number_of_seconds".into()
                                             }]
@@ -828,13 +828,13 @@ fn test_to_wikitext_ext_link() {
 fn test_to_wikitext_template() {
     let node = WSN::Template {
         name: "Template".into(),
-        children: vec![],
+        parameters: vec![],
     };
     assert_eq!(node.to_wikitext(), "{{Template}}");
 
     let node = WSN::Template {
         name: "Template".into(),
-        children: vec![
+        parameters: vec![
             TemplateParameter {
                 name: "param1".into(),
                 value: "value1".into(),
@@ -852,7 +852,7 @@ fn test_to_wikitext_template() {
 
     let node = WSN::Template {
         name: "Template".into(),
-        children: vec![
+        parameters: vec![
             TemplateParameter {
                 name: "1".into(),
                 value: "value1".into(),
