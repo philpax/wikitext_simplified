@@ -618,16 +618,9 @@ impl WikitextSimplifiedNode {
     }
 }
 // Visitors
-impl WikitextSimplifiedNode {
-    /// Visits this node and all its children recursively with the given visitor function,
-    /// including "deep" children in tables, lists, and more.
-    ///
-    /// The visitor function is called on each node in depth-first order, starting with
-    /// this node and then visiting all its children.
-    pub fn visit(&self, visitor: &mut impl FnMut(&Self)) {
-        visitor(self);
-
-        match self {
+macro_rules! visit_children_impl {
+    ($self:expr, $visitor:expr, $visit_method:ident, $iter_method:ident) => {
+        match $self {
             Self::Fragment { children }
             | Self::Heading { children, .. }
             | Self::Bold { children }
@@ -639,35 +632,42 @@ impl WikitextSimplifiedNode {
             | Self::Preformatted { children }
             | Self::Tag { children, .. } => {
                 for child in children {
-                    child.visit(visitor);
+                    child.$visit_method($visitor);
                 }
             }
 
             Self::TemplateParameterUse { default, .. } => {
                 if let Some(default) = default {
                     for child in default {
-                        child.visit(visitor);
+                        child.$visit_method($visitor);
                     }
                 }
             }
             Self::Table { captions, rows, .. } => {
-                for caption in captions.iter().flat_map(|c| c.content.iter()) {
-                    caption.visit(visitor);
+                for caption in captions
+                    .$iter_method()
+                    .flat_map(|c| c.content.$iter_method())
+                {
+                    caption.$visit_method($visitor);
                 }
-                for row in rows.iter() {
-                    for cell in row.cells.iter().flat_map(|c| c.content.iter()) {
-                        cell.visit(visitor);
+                for row in rows.$iter_method() {
+                    for cell in row
+                        .cells
+                        .$iter_method()
+                        .flat_map(|c| c.content.$iter_method())
+                    {
+                        cell.$visit_method($visitor);
                     }
                 }
             }
             Self::OrderedList { items } => {
-                for item in items.iter().flat_map(|i| i.content.iter()) {
-                    item.visit(visitor);
+                for item in items.$iter_method().flat_map(|i| i.content.$iter_method()) {
+                    item.$visit_method($visitor);
                 }
             }
             Self::UnorderedList { items } => {
-                for item in items.iter().flat_map(|i| i.content.iter()) {
-                    item.visit(visitor);
+                for item in items.$iter_method().flat_map(|i| i.content.$iter_method()) {
+                    item.$visit_method($visitor);
                 }
             }
             Self::Template { .. }
@@ -679,6 +679,17 @@ impl WikitextSimplifiedNode {
             | Self::ParagraphBreak
             | Self::Newline => {}
         }
+    };
+}
+impl WikitextSimplifiedNode {
+    /// Visits this node and all its children recursively with the given visitor function,
+    /// including "deep" children in tables, lists, and more.
+    ///
+    /// The visitor function is called on each node in depth-first order, starting with
+    /// this node and then visiting all its children.
+    pub fn visit(&self, visitor: &mut impl FnMut(&Self)) {
+        visitor(self);
+        visit_children_impl!(self, visitor, visit, iter);
     }
 
     /// Visits this node and all its children recursively with the given visitor function,
@@ -688,59 +699,7 @@ impl WikitextSimplifiedNode {
     /// this node and then visiting all its children.
     pub fn visit_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
         visitor(self);
-
-        match self {
-            Self::Fragment { children }
-            | Self::Heading { children, .. }
-            | Self::Bold { children }
-            | Self::Italic { children }
-            | Self::Blockquote { children }
-            | Self::Superscript { children }
-            | Self::Subscript { children }
-            | Self::Small { children }
-            | Self::Preformatted { children }
-            | Self::Tag { children, .. } => {
-                for child in children {
-                    child.visit_mut(visitor);
-                }
-            }
-
-            Self::TemplateParameterUse { default, .. } => {
-                if let Some(default) = default {
-                    for child in default {
-                        child.visit_mut(visitor);
-                    }
-                }
-            }
-            Self::Table { captions, rows, .. } => {
-                for caption in captions.iter_mut().flat_map(|c| c.content.iter_mut()) {
-                    caption.visit_mut(visitor);
-                }
-                for row in rows.iter_mut() {
-                    for cell in row.cells.iter_mut().flat_map(|c| c.content.iter_mut()) {
-                        cell.visit_mut(visitor);
-                    }
-                }
-            }
-            Self::OrderedList { items } => {
-                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
-                    item.visit_mut(visitor);
-                }
-            }
-            Self::UnorderedList { items } => {
-                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
-                    item.visit_mut(visitor);
-                }
-            }
-            Self::Template { .. }
-            | Self::Link { .. }
-            | Self::ExtLink { .. }
-            | Self::Text { .. }
-            | Self::Redirect { .. }
-            | Self::HorizontalDivider
-            | Self::ParagraphBreak
-            | Self::Newline => {}
-        }
+        visit_children_impl!(self, visitor, visit_mut, iter_mut);
     }
 
     /// Visits this node and all its children recursively with the given visitor function,
@@ -748,59 +707,7 @@ impl WikitextSimplifiedNode {
     ///
     /// The visitor function is called on the children of each node first, and then on the node itself.
     pub fn visit_and_replace_mut(&mut self, visitor: &mut impl FnMut(&Self) -> Self) {
-        match self {
-            Self::Fragment { children }
-            | Self::Heading { children, .. }
-            | Self::Bold { children }
-            | Self::Italic { children }
-            | Self::Blockquote { children }
-            | Self::Superscript { children }
-            | Self::Subscript { children }
-            | Self::Small { children }
-            | Self::Preformatted { children }
-            | Self::Tag { children, .. } => {
-                for child in children {
-                    child.visit_and_replace_mut(visitor);
-                }
-            }
-
-            Self::TemplateParameterUse { default, .. } => {
-                if let Some(default) = default {
-                    for child in default {
-                        child.visit_and_replace_mut(visitor);
-                    }
-                }
-            }
-            Self::Table { captions, rows, .. } => {
-                for caption in captions.iter_mut().flat_map(|c| c.content.iter_mut()) {
-                    caption.visit_and_replace_mut(visitor);
-                }
-                for row in rows.iter_mut() {
-                    for cell in row.cells.iter_mut().flat_map(|c| c.content.iter_mut()) {
-                        cell.visit_and_replace_mut(visitor);
-                    }
-                }
-            }
-            Self::OrderedList { items } => {
-                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
-                    item.visit_and_replace_mut(visitor);
-                }
-            }
-            Self::UnorderedList { items } => {
-                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
-                    item.visit_and_replace_mut(visitor);
-                }
-            }
-            Self::Template { .. }
-            | Self::Link { .. }
-            | Self::ExtLink { .. }
-            | Self::Text { .. }
-            | Self::Redirect { .. }
-            | Self::HorizontalDivider
-            | Self::ParagraphBreak
-            | Self::Newline => {}
-        }
-
+        visit_children_impl!(self, visitor, visit_and_replace_mut, iter_mut);
         *self = visitor(self);
     }
 }
