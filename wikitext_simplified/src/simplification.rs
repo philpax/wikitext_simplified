@@ -311,7 +311,8 @@ impl WikitextSimplifiedNode {
         }
     }
 
-    /// Returns a reference to the children of this node, if it has any.
+    /// Returns a reference to the immediate children of this node, if it has any.
+    /// This does not include "deep" children in tables, lists, etc.
     ///
     /// This method returns `Some` for node types that can contain children (like `Fragment`,
     /// `Bold`, `Italic`, etc.) and `None` for leaf nodes (like `Text`, `ParagraphBreak`).
@@ -343,7 +344,8 @@ impl WikitextSimplifiedNode {
         }
     }
 
-    /// Returns a mutable reference to the children of this node, if it has any.
+    /// Returns a mutable reference to the immediate children of this node, if it has any.
+    /// This does not include "deep" children in tables, lists, etc.
     ///
     /// This method returns `Some` for node types that can contain children (like `Fragment`,
     /// `Bold`, `Italic`, etc.) and `None` for leaf nodes (like `Text`, `ParagraphBreak`).
@@ -372,19 +374,6 @@ impl WikitextSimplifiedNode {
             | Self::HorizontalDivider
             | Self::ParagraphBreak
             | Self::Newline => None,
-        }
-    }
-
-    /// Visits this node and all its children recursively with the given visitor function.
-    ///
-    /// The visitor function is called on each node in depth-first order, starting with
-    /// this node and then visiting all its children.
-    pub fn visit_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
-        visitor(self);
-        if let Some(children) = self.children_mut() {
-            for child in children {
-                child.visit_mut(visitor);
-            }
         }
     }
 
@@ -628,6 +617,193 @@ impl WikitextSimplifiedNode {
         }
     }
 }
+// Visitors
+impl WikitextSimplifiedNode {
+    /// Visits this node and all its children recursively with the given visitor function,
+    /// including "deep" children in tables, lists, and more.
+    ///
+    /// The visitor function is called on each node in depth-first order, starting with
+    /// this node and then visiting all its children.
+    pub fn visit(&self, visitor: &mut impl FnMut(&Self)) {
+        visitor(self);
+
+        match self {
+            Self::Fragment { children }
+            | Self::Heading { children, .. }
+            | Self::Bold { children }
+            | Self::Italic { children }
+            | Self::Blockquote { children }
+            | Self::Superscript { children }
+            | Self::Subscript { children }
+            | Self::Small { children }
+            | Self::Preformatted { children }
+            | Self::Tag { children, .. } => {
+                for child in children {
+                    child.visit(visitor);
+                }
+            }
+
+            Self::TemplateParameterUse { default, .. } => {
+                if let Some(default) = default {
+                    for child in default {
+                        child.visit(visitor);
+                    }
+                }
+            }
+            Self::Table { captions, rows, .. } => {
+                for caption in captions.iter().flat_map(|c| c.content.iter()) {
+                    caption.visit(visitor);
+                }
+                for row in rows.iter() {
+                    for cell in row.cells.iter().flat_map(|c| c.content.iter()) {
+                        cell.visit(visitor);
+                    }
+                }
+            }
+            Self::OrderedList { items } => {
+                for item in items.iter().flat_map(|i| i.content.iter()) {
+                    item.visit(visitor);
+                }
+            }
+            Self::UnorderedList { items } => {
+                for item in items.iter().flat_map(|i| i.content.iter()) {
+                    item.visit(visitor);
+                }
+            }
+            Self::Template { .. }
+            | Self::Link { .. }
+            | Self::ExtLink { .. }
+            | Self::Text { .. }
+            | Self::Redirect { .. }
+            | Self::HorizontalDivider
+            | Self::ParagraphBreak
+            | Self::Newline => {}
+        }
+    }
+
+    /// Visits this node and all its children recursively with the given visitor function,
+    /// including "deep" children in tables, lists, and more.
+    ///
+    /// The visitor function is called on each node in depth-first order, starting with
+    /// this node and then visiting all its children.
+    pub fn visit_mut(&mut self, visitor: &mut impl FnMut(&mut Self)) {
+        visitor(self);
+
+        match self {
+            Self::Fragment { children }
+            | Self::Heading { children, .. }
+            | Self::Bold { children }
+            | Self::Italic { children }
+            | Self::Blockquote { children }
+            | Self::Superscript { children }
+            | Self::Subscript { children }
+            | Self::Small { children }
+            | Self::Preformatted { children }
+            | Self::Tag { children, .. } => {
+                for child in children {
+                    child.visit_mut(visitor);
+                }
+            }
+
+            Self::TemplateParameterUse { default, .. } => {
+                if let Some(default) = default {
+                    for child in default {
+                        child.visit_mut(visitor);
+                    }
+                }
+            }
+            Self::Table { captions, rows, .. } => {
+                for caption in captions.iter_mut().flat_map(|c| c.content.iter_mut()) {
+                    caption.visit_mut(visitor);
+                }
+                for row in rows.iter_mut() {
+                    for cell in row.cells.iter_mut().flat_map(|c| c.content.iter_mut()) {
+                        cell.visit_mut(visitor);
+                    }
+                }
+            }
+            Self::OrderedList { items } => {
+                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
+                    item.visit_mut(visitor);
+                }
+            }
+            Self::UnorderedList { items } => {
+                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
+                    item.visit_mut(visitor);
+                }
+            }
+            Self::Template { .. }
+            | Self::Link { .. }
+            | Self::ExtLink { .. }
+            | Self::Text { .. }
+            | Self::Redirect { .. }
+            | Self::HorizontalDivider
+            | Self::ParagraphBreak
+            | Self::Newline => {}
+        }
+    }
+
+    /// Visits this node and all its children recursively with the given visitor function,
+    /// replacing the node with the result of the visitor function.
+    ///
+    /// The visitor function is called on the children of each node first, and then on the node itself.
+    pub fn visit_and_replace_mut(&mut self, visitor: &mut impl FnMut(&Self) -> Self) {
+        match self {
+            Self::Fragment { children }
+            | Self::Heading { children, .. }
+            | Self::Bold { children }
+            | Self::Italic { children }
+            | Self::Blockquote { children }
+            | Self::Superscript { children }
+            | Self::Subscript { children }
+            | Self::Small { children }
+            | Self::Preformatted { children }
+            | Self::Tag { children, .. } => {
+                for child in children {
+                    child.visit_and_replace_mut(visitor);
+                }
+            }
+
+            Self::TemplateParameterUse { default, .. } => {
+                if let Some(default) = default {
+                    for child in default {
+                        child.visit_and_replace_mut(visitor);
+                    }
+                }
+            }
+            Self::Table { captions, rows, .. } => {
+                for caption in captions.iter_mut().flat_map(|c| c.content.iter_mut()) {
+                    caption.visit_and_replace_mut(visitor);
+                }
+                for row in rows.iter_mut() {
+                    for cell in row.cells.iter_mut().flat_map(|c| c.content.iter_mut()) {
+                        cell.visit_and_replace_mut(visitor);
+                    }
+                }
+            }
+            Self::OrderedList { items } => {
+                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
+                    item.visit_and_replace_mut(visitor);
+                }
+            }
+            Self::UnorderedList { items } => {
+                for item in items.iter_mut().flat_map(|i| i.content.iter_mut()) {
+                    item.visit_and_replace_mut(visitor);
+                }
+            }
+            Self::Template { .. }
+            | Self::Link { .. }
+            | Self::ExtLink { .. }
+            | Self::Text { .. }
+            | Self::Redirect { .. }
+            | Self::HorizontalDivider
+            | Self::ParagraphBreak
+            | Self::Newline => {}
+        }
+
+        *self = visitor(self);
+    }
+}
 
 /// A parameter for a wikitext template
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -805,18 +981,18 @@ pub fn simplify_wikitext_nodes(
             return Ok(());
         }
         Err(SimplificationError::InvalidNodeStructure {
-                kind: NodeStructureError::TagClosureMismatch {
-                    expected: end_tag_name.to_string(),
-                    actual: last_node_name.to_string(),
-                },
-                context: SimplificationErrorContext {
-                    // Filling this in requires us to have the original bounds and wikitext,
-                    // which we don't have here. This can be fixed, but it would require a more
-                    // significant refactor.
-                    content: "TODO: Fill in context for tag closure mismatch".into(),
-                    start: 0,
-                    end: 0,
-                },
+            kind: NodeStructureError::TagClosureMismatch {
+                expected: end_tag_name.to_string(),
+                actual: last_node_name.to_string(),
+            },
+            context: SimplificationErrorContext {
+                // Filling this in requires us to have the original bounds and wikitext,
+                // which we don't have here. This can be fixed, but it would require a more
+                // significant refactor.
+                content: "TODO: Fill in context for tag closure mismatch".into(),
+                start: 0,
+                end: 0,
+            },
         })
     }
     root_stack.unwind()
