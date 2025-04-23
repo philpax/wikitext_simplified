@@ -980,7 +980,7 @@ fn test_to_wikitext_redirect() {
 
 #[test]
 fn test_to_wikitext_special_nodes() {
-    assert_eq!(WSN::HorizontalDivider.to_wikitext(), "----");
+    assert_eq!(WSN::HorizontalDivider.to_wikitext(), "----\n");
     assert_eq!(WSN::ParagraphBreak.to_wikitext(), "\n\n");
     assert_eq!(WSN::Newline.to_wikitext(), "\n");
 }

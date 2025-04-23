@@ -611,7 +611,7 @@ impl WikitextSimplifiedNode {
             Self::Redirect { target } => {
                 format!("#REDIRECT [[{}]]", target)
             }
-            Self::HorizontalDivider => "----".to_string(),
+            Self::HorizontalDivider => "----\n".to_string(),
             Self::ParagraphBreak => "\n\n".to_string(),
             Self::Newline => "\n".to_string(),
         }
