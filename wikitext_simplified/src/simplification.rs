@@ -216,7 +216,7 @@ pub enum WikitextSimplifiedNode {
     /// A table
     Table {
         /// The HTML attributes of the table
-        attributes: String,
+        attributes: Vec<WikitextSimplifiedNode>,
         /// The captions of the table
         captions: Vec<WikitextSimplifiedTableCaption>,
         /// The rows of the table
@@ -255,7 +255,7 @@ pub enum WikitextSimplifiedNode {
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct WikitextSimplifiedTableCaption {
     /// The HTML attributes of the caption
-    pub attributes: Option<String>,
+    pub attributes: Option<Vec<WikitextSimplifiedNode>>,
     /// The content of the caption
     pub content: Vec<WikitextSimplifiedNode>,
 }
@@ -265,7 +265,7 @@ pub struct WikitextSimplifiedTableCaption {
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct WikitextSimplifiedTableRow {
     /// The HTML attributes of the row
-    pub attributes: Option<String>,
+    pub attributes: Vec<WikitextSimplifiedNode>,
     /// The cells in the row
     pub cells: Vec<WikitextSimplifiedTableCell>,
 }
@@ -277,7 +277,7 @@ pub struct WikitextSimplifiedTableCell {
     /// Whether this cell is a header cell (`!` syntax)
     pub is_header: bool,
     /// The HTML attributes of the cell
-    pub attributes: Option<String>,
+    pub attributes: Option<Vec<WikitextSimplifiedNode>>,
     /// The content of the cell
     pub content: Vec<WikitextSimplifiedNode>,
 }
@@ -537,13 +537,13 @@ impl WikitextSimplifiedNode {
                 captions,
                 rows,
             } => {
-                let mut result = format!("{{|{}\n", attributes);
+                let mut result = format!("{{|{}\n", nodes_to_wikitext(attributes));
 
                 // Add captions
                 for caption in captions {
                     result.push_str("|+");
                     if let Some(attrs) = &caption.attributes {
-                        result.push_str(&format!(" {}", attrs));
+                        result.push_str(&format!(" {}", nodes_to_wikitext(attrs)));
                     }
                     result.push_str(&nodes_to_wikitext(&caption.content));
                     result.push_str("\n|-\n");
@@ -554,8 +554,8 @@ impl WikitextSimplifiedNode {
                     if row_idx > 0 {
                         result.push_str("|-\n");
                     }
-                    if let Some(attrs) = &row.attributes {
-                        result.push_str(&format!("|- {}\n", attrs));
+                    if !row.attributes.is_empty() {
+                        result.push_str(&format!("|- {}\n", nodes_to_wikitext(&row.attributes)));
                     }
 
                     for (idx, cell) in row.cells.iter().enumerate() {
@@ -565,7 +565,7 @@ impl WikitextSimplifiedNode {
                             result.push('|');
                         }
                         if let Some(attrs) = &cell.attributes {
-                            result.push_str(attrs);
+                            result.push_str(&nodes_to_wikitext(attrs));
                             result.push('|');
                         }
                         result.push_str(&nodes_to_wikitext(&cell.content));
@@ -644,19 +644,28 @@ macro_rules! visit_children_impl {
                     }
                 }
             }
-            Self::Table { captions, rows, .. } => {
-                for caption in captions
-                    .$iter_method()
-                    .flat_map(|c| c.content.$iter_method())
-                {
+            Self::Table {
+                attributes,
+                captions,
+                rows,
+                ..
+            } => {
+                for attr in attributes.$iter_method() {
+                    attr.$visit_method($visitor);
+                }
+                for caption in captions.$iter_method().flat_map(|c| {
+                    c.content
+                        .$iter_method()
+                        .chain(c.attributes.$iter_method().flat_map(|a| a.$iter_method()))
+                }) {
                     caption.$visit_method($visitor);
                 }
                 for row in rows.$iter_method() {
-                    for cell in row
-                        .cells
-                        .$iter_method()
-                        .flat_map(|c| c.content.$iter_method())
-                    {
+                    for cell in row.cells.$iter_method().flat_map(|c| {
+                        c.content
+                            .$iter_method()
+                            .chain(c.attributes.$iter_method().flat_map(|a| a.$iter_method()))
+                    }) {
                         cell.$visit_method($visitor);
                     }
                 }
@@ -1016,19 +1025,16 @@ pub fn simplify_wikitext_node(
             rows,
             ..
         } => {
-            // Convert table attributes to a string
-            let attributes_str = nodes_wikitext(wikitext, attributes);
-
             // Convert captions
             let mut simplified_captions = vec![];
             for caption in captions {
-                let caption_attributes = caption
-                    .attributes
-                    .as_ref()
-                    .map(|attrs| nodes_wikitext(wikitext, attrs));
                 let caption_content = simplify_wikitext_nodes(wikitext, &caption.content)?;
                 simplified_captions.push(WikitextSimplifiedTableCaption {
-                    attributes: caption_attributes,
+                    attributes: caption
+                        .attributes
+                        .as_deref()
+                        .map(|attrs| simplify_wikitext_nodes(wikitext, attrs))
+                        .transpose()?,
                     content: caption_content,
                 });
             }
@@ -1036,34 +1042,28 @@ pub fn simplify_wikitext_node(
             // Convert rows
             let mut simplified_rows = vec![];
             for row in rows {
-                let row_attributes = if !row.attributes.is_empty() {
-                    Some(nodes_wikitext(wikitext, &row.attributes))
-                } else {
-                    None
-                };
-
                 let mut cells = vec![];
                 for cell in &row.cells {
-                    let cell_attributes = cell
-                        .attributes
-                        .as_ref()
-                        .map(|attrs| nodes_wikitext(wikitext, attrs));
                     let cell_content = simplify_wikitext_nodes(wikitext, &cell.content)?;
                     cells.push(WikitextSimplifiedTableCell {
                         is_header: cell.type_ == pwt::TableCellType::Heading,
-                        attributes: cell_attributes,
+                        attributes: cell
+                            .attributes
+                            .as_deref()
+                            .map(|attrs| simplify_wikitext_nodes(wikitext, attrs))
+                            .transpose()?,
                         content: cell_content,
                     });
                 }
 
                 simplified_rows.push(WikitextSimplifiedTableRow {
-                    attributes: row_attributes,
+                    attributes: simplify_wikitext_nodes(wikitext, &row.attributes)?,
                     cells,
                 });
             }
 
             return Ok(Some(WSN::Table {
-                attributes: attributes_str,
+                attributes: simplify_wikitext_nodes(wikitext, attributes)?,
                 captions: simplified_captions,
                 rows: simplified_rows,
             }));

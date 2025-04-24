@@ -513,7 +513,9 @@ fn test_table_conversion() {
     assert_eq!(
         simplified,
         vec![WSN::Table {
-            attributes: "class=\"wikitable\"".into(),
+            attributes: vec![WSN::Text {
+                text: "class=\"wikitable\"".into()
+            }],
             captions: vec![WikitextSimplifiedTableCaption {
                 attributes: None,
                 content: vec![WSN::Text {
@@ -522,7 +524,7 @@ fn test_table_conversion() {
             }],
             rows: vec![
                 WikitextSimplifiedTableRow {
-                    attributes: None,
+                    attributes: vec![],
                     cells: vec![
                         WikitextSimplifiedTableCell {
                             attributes: None,
@@ -541,7 +543,7 @@ fn test_table_conversion() {
                     ]
                 },
                 WikitextSimplifiedTableRow {
-                    attributes: None,
+                    attributes: vec![],
                     cells: vec![
                         WikitextSimplifiedTableCell {
                             attributes: None,
@@ -560,7 +562,7 @@ fn test_table_conversion() {
                     ]
                 },
                 WikitextSimplifiedTableRow {
-                    attributes: None,
+                    attributes: vec![],
                     cells: vec![
                         WikitextSimplifiedTableCell {
                             attributes: None,
@@ -921,7 +923,9 @@ fn test_to_wikitext_table() {
     .trim_start();
 
     let node = WSN::Table {
-        attributes: "class=\"wikitable\"".into(),
+        attributes: vec![WSN::Text {
+            text: "class=\"wikitable\"".into(),
+        }],
         captions: vec![WikitextSimplifiedTableCaption {
             attributes: None,
             content: vec![WSN::Text {
@@ -929,7 +933,7 @@ fn test_to_wikitext_table() {
             }],
         }],
         rows: vec![WikitextSimplifiedTableRow {
-            attributes: None,
+            attributes: vec![],
             cells: vec![
                 WikitextSimplifiedTableCell {
                     attributes: None,
@@ -962,13 +966,15 @@ fn test_to_wikitext_table_representative() {
     .trim_start();
 
     let node = WSN::Table {
-        attributes: "".into(),
+        attributes: vec![],
         captions: vec![],
         rows: vec![WikitextSimplifiedTableRow {
-            attributes: None,
+            attributes: vec![],
             cells: vec![
                 WikitextSimplifiedTableCell {
-                    attributes: Some("width=\"120\" align=\"right\"".into()),
+                    attributes: Some(vec![WSN::Text {
+                        text: "width=\"120\" align=\"right\"".into(),
+                    }]),
                     content: vec![
                         WSN::Tag {
                             name: "font".into(),
