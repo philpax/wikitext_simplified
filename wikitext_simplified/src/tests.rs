@@ -526,13 +526,15 @@ fn test_table_conversion() {
                             attributes: None,
                             content: vec![WSN::Text {
                                 text: "Header 1".into()
-                            }]
+                            }],
+                            is_header: true,
                         },
                         WikitextSimplifiedTableCell {
                             attributes: None,
                             content: vec![WSN::Text {
                                 text: "Header 2".into()
-                            }]
+                            }],
+                            is_header: true,
                         }
                     ]
                 },
@@ -543,13 +545,15 @@ fn test_table_conversion() {
                             attributes: None,
                             content: vec![WSN::Text {
                                 text: "Cell 1".into()
-                            }]
+                            }],
+                            is_header: false,
                         },
                         WikitextSimplifiedTableCell {
                             attributes: None,
                             content: vec![WSN::Text {
                                 text: "Cell 2".into()
-                            }]
+                            }],
+                            is_header: false,
                         }
                     ]
                 },
@@ -560,13 +564,15 @@ fn test_table_conversion() {
                             attributes: None,
                             content: vec![WSN::Text {
                                 text: "Cell 3".into()
-                            }]
+                            }],
+                            is_header: false,
                         },
                         WikitextSimplifiedTableCell {
                             attributes: None,
                             content: vec![WSN::Text {
                                 text: "Cell 4".into()
-                            }]
+                            }],
+                            is_header: false,
                         }
                     ]
                 }
@@ -903,6 +909,15 @@ fn test_to_wikitext_tag() {
 
 #[test]
 fn test_to_wikitext_table() {
+    let expected = r#"
+{|class="wikitable"
+|+Caption
+|-
+|Cell 1|Cell 2
+|}
+"#
+    .trim_start();
+
     let node = WSN::Table {
         attributes: "class=\"wikitable\"".into(),
         captions: vec![WikitextSimplifiedTableCaption {
@@ -919,20 +934,72 @@ fn test_to_wikitext_table() {
                     content: vec![WSN::Text {
                         text: "Cell 1".into(),
                     }],
+                    is_header: false,
                 },
                 WikitextSimplifiedTableCell {
                     attributes: None,
                     content: vec![WSN::Text {
                         text: "Cell 2".into(),
                     }],
+                    is_header: false,
                 },
             ],
         }],
     };
-    assert_eq!(
-        node.to_wikitext(),
-        "{|class=\"wikitable\"\n|+Caption\n|-\n|Cell 1|Cell 2\n|}"
-    );
+    assert_eq!(node.to_wikitext(), expected);
+}
+
+#[test]
+fn test_to_wikitext_table_representative() {
+    let expected = r#"
+{|
+!width="120" align="right"|<font size="3">Returns</font> &nbsp;&nbsp;
+|<font size="3">None</font>
+|}
+"#
+    .trim_start();
+
+    let node = WSN::Table {
+        attributes: "".into(),
+        captions: vec![],
+        rows: vec![WikitextSimplifiedTableRow {
+            attributes: None,
+            cells: vec![
+                WikitextSimplifiedTableCell {
+                    attributes: Some("width=\"120\" align=\"right\"".into()),
+                    content: vec![
+                        WSN::Tag {
+                            name: "font".into(),
+                            attributes: Some("size=\"3\"".into()),
+                            children: vec![WSN::Text {
+                                text: "Returns".into(),
+                            }],
+                        },
+                        WSN::Text { text: " ".into() },
+                        WSN::Text {
+                            text: "\u{a0}".into(),
+                        },
+                        WSN::Text {
+                            text: "\u{a0}".into(),
+                        },
+                    ],
+                    is_header: true,
+                },
+                WikitextSimplifiedTableCell {
+                    attributes: None,
+                    content: vec![WSN::Tag {
+                        name: "font".into(),
+                        attributes: Some("size=\"3\"".into()),
+                        children: vec![WSN::Text {
+                            text: "None".into(),
+                        }],
+                    }],
+                    is_header: false,
+                },
+            ],
+        }],
+    };
+    assert_eq!(node.to_wikitext(), expected);
 }
 
 #[test]
@@ -980,8 +1047,8 @@ fn test_to_wikitext_redirect() {
 
 #[test]
 fn test_to_wikitext_special_nodes() {
-    assert_eq!(WSN::HorizontalDivider.to_wikitext(), "----\n");
-    assert_eq!(WSN::ParagraphBreak.to_wikitext(), "\n\n");
+    assert_eq!(WSN::HorizontalDivider.to_wikitext(), "----");
+    assert_eq!(WSN::ParagraphBreak.to_wikitext(), "<br/>");
     assert_eq!(WSN::Newline.to_wikitext(), "\n");
 }
 
@@ -1020,5 +1087,47 @@ fn test_to_wikitext_nested() {
     assert_eq!(
         node.to_wikitext(),
         "This is '''bold''', this is ''italic'', and this is '''''bold italic'''''"
+    );
+}
+
+#[test]
+fn test_multiline_wikitext_roundtrip() {
+    let sample = r#"----
+{|
+!width="120" align="right"|<font size="3">Returns</font> &nbsp;&nbsp;
+|<font size="3">[[Lua/Server/CellID|CellID]]</font>
+|-
+!width="120" align="right"|<font size="3">Prototype</font> &nbsp;&nbsp;
+|<font size="3">StreamableObject:GetCellId()</font>
+|-
+!width="120" align="right"|<font size="3">Description</font> &nbsp;&nbsp;
+|<font size="3">No description</font>
+|}
+<br/>"#;
+    let simplified = parse_and_simplify_wikitext(sample, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        WSN::Fragment {
+            children: simplified
+        }
+        .to_wikitext(),
+        sample
+    );
+}
+
+#[test]
+fn test_warning_box_instantiated_table() {
+    let sample = r#"<center>
+{|border="1"
+|- style="background:#e02020; color:white"
+!width="800" height="50"|<br/><font size="3">Please note: This documentation is a major work in progress.<br/>Expect it to be greatly improved over time.</font>
+|}
+</center>"#;
+    let simplified = parse_and_simplify_wikitext(sample, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        WSN::Fragment {
+            children: simplified
+        }
+        .to_wikitext(),
+        sample
     );
 }

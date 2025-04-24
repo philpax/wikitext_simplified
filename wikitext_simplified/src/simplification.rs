@@ -269,6 +269,8 @@ pub struct WikitextSimplifiedTableRow {
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct WikitextSimplifiedTableCell {
+    /// Whether this cell is a header cell (`!` syntax)
+    pub is_header: bool,
     /// The HTML attributes of the cell
     pub attributes: Option<String>,
     /// The content of the cell
@@ -377,12 +379,34 @@ impl WikitextSimplifiedNode {
         }
     }
 
+    /// Returns `true` if this node is a block-level node.
+    ///
+    /// Block-level nodes are nodes that can contain other nodes, such as headings, tables, lists, etc.
+    pub fn is_block_type(&self) -> bool {
+        matches!(
+            self,
+            Self::Heading { .. }
+                | Self::Table { .. }
+                | Self::OrderedList { .. }
+                | Self::UnorderedList { .. }
+        )
+    }
+
     /// Converts this node and its children back into wikitext format.
     pub fn to_wikitext(&self) -> String {
-        match self {
-            Self::Fragment { children } => {
-                children.iter().map(|child| child.to_wikitext()).collect()
+        fn nodes_to_wikitext(nodes: &[WikitextSimplifiedNode]) -> String {
+            let mut output = String::new();
+            for node in nodes {
+                if node.is_block_type() {
+                    output.push('\n');
+                }
+                output.push_str(&node.to_wikitext());
             }
+            output
+        }
+
+        match self {
+            Self::Fragment { children } => nodes_to_wikitext(children),
             Self::Template { name, parameters } => {
                 let params = parameters
                     .iter()
@@ -411,26 +435,13 @@ impl WikitextSimplifiedNode {
                 let mut result = format!("{{{{{}}}}}", name);
                 if let Some(default_nodes) = default {
                     result.push('|');
-                    result.push_str(
-                        &default_nodes
-                            .iter()
-                            .map(|node| node.to_wikitext())
-                            .collect::<String>(),
-                    );
+                    result.push_str(&nodes_to_wikitext(default_nodes));
                 }
                 result
             }
             Self::Heading { level, children } => {
                 let equals = "=".repeat(*level as usize);
-                format!(
-                    "{} {} {}",
-                    equals,
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>(),
-                    equals
-                )
+                format!("{} {} {}", equals, nodes_to_wikitext(children), equals)
             }
             Self::Link { text, title } => {
                 if text == title {
@@ -447,67 +458,25 @@ impl WikitextSimplifiedNode {
                 }
             }
             Self::Bold { children } => {
-                format!(
-                    "'''{}'''",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("'''{}'''", nodes_to_wikitext(children))
             }
             Self::Italic { children } => {
-                format!(
-                    "''{}''",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("''{}''", nodes_to_wikitext(children))
             }
             Self::Blockquote { children } => {
-                format!(
-                    "<blockquote>{}</blockquote>",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("<blockquote>{}</blockquote>", nodes_to_wikitext(children))
             }
             Self::Superscript { children } => {
-                format!(
-                    "<sup>{}</sup>",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("<sup>{}</sup>", nodes_to_wikitext(children))
             }
             Self::Subscript { children } => {
-                format!(
-                    "<sub>{}</sub>",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("<sub>{}</sub>", nodes_to_wikitext(children))
             }
             Self::Small { children } => {
-                format!(
-                    "<small>{}</small>",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("<small>{}</small>", nodes_to_wikitext(children))
             }
             Self::Preformatted { children } => {
-                format!(
-                    "<pre>{}</pre>",
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>()
-                )
+                format!("<pre>{}</pre>", nodes_to_wikitext(children))
             }
             Self::Tag {
                 name,
@@ -521,14 +490,11 @@ impl WikitextSimplifiedNode {
                     name,
                     space,
                     attrs,
-                    children
-                        .iter()
-                        .map(|child| child.to_wikitext())
-                        .collect::<String>(),
+                    nodes_to_wikitext(children),
                     name
                 )
             }
-            Self::Text { text } => text.clone(),
+            Self::Text { text } => text.replace('\u{a0}', "&nbsp;"),
             Self::Table {
                 attributes,
                 captions,
@@ -542,53 +508,48 @@ impl WikitextSimplifiedNode {
                     if let Some(attrs) = &caption.attributes {
                         result.push_str(&format!(" {}", attrs));
                     }
-                    result.push_str(
-                        &caption
-                            .content
-                            .iter()
-                            .map(|node| node.to_wikitext())
-                            .collect::<String>(),
-                    );
-                    result.push('\n');
+                    result.push_str(&nodes_to_wikitext(&caption.content));
+                    result.push_str("\n|-\n");
                 }
 
                 // Add rows
-                for row in rows {
-                    result.push_str("|-\n");
+                for (row_idx, row) in rows.iter().enumerate() {
+                    if row_idx > 0 {
+                        result.push_str("|-\n");
+                    }
                     if let Some(attrs) = &row.attributes {
-                        result.push_str(&format!("|{}", attrs));
+                        result.push_str(&format!("|- {}\n", attrs));
                     }
 
-                    for cell in &row.cells {
-                        result.push('|');
-                        if let Some(attrs) = &cell.attributes {
-                            result.push_str(&format!(" {}", attrs));
+                    for (idx, cell) in row.cells.iter().enumerate() {
+                        if cell.is_header {
+                            result.push('!');
+                        } else {
+                            result.push('|');
                         }
-                        result.push_str(
-                            &cell
-                                .content
-                                .iter()
-                                .map(|node| node.to_wikitext())
-                                .collect::<String>(),
-                        );
+                        if let Some(attrs) = &cell.attributes {
+                            result.push_str(attrs);
+                            result.push('|');
+                        }
+                        result.push_str(&nodes_to_wikitext(&cell.content));
+                        if idx < row.cells.len() - 1 {
+                            let next_is_header = row.cells[idx + 1].is_header;
+                            if cell.is_header != next_is_header {
+                                result.push('\n');
+                            }
+                        }
                     }
                     result.push('\n');
                 }
 
-                result.push_str("|}");
+                result.push_str("|}\n");
                 result
             }
             Self::OrderedList { items } => {
                 let mut result = String::new();
                 for item in items {
                     result.push('#');
-                    result.push_str(
-                        &item
-                            .content
-                            .iter()
-                            .map(|node| node.to_wikitext())
-                            .collect::<String>(),
-                    );
+                    result.push_str(&nodes_to_wikitext(&item.content));
                     result.push('\n');
                 }
                 result
@@ -597,13 +558,7 @@ impl WikitextSimplifiedNode {
                 let mut result = String::new();
                 for item in items {
                     result.push('*');
-                    result.push_str(
-                        &item
-                            .content
-                            .iter()
-                            .map(|node| node.to_wikitext())
-                            .collect::<String>(),
-                    );
+                    result.push_str(&nodes_to_wikitext(&item.content));
                     result.push('\n');
                 }
                 result
@@ -611,8 +566,8 @@ impl WikitextSimplifiedNode {
             Self::Redirect { target } => {
                 format!("#REDIRECT [[{}]]", target)
             }
-            Self::HorizontalDivider => "----\n".to_string(),
-            Self::ParagraphBreak => "\n\n".to_string(),
+            Self::HorizontalDivider => "----".to_string(),
+            Self::ParagraphBreak => "<br/>".to_string(),
             Self::Newline => "\n".to_string(),
         }
     }
@@ -1042,6 +997,7 @@ pub fn simplify_wikitext_node(
                         .map(|attrs| nodes_wikitext(wikitext, attrs));
                     let cell_content = simplify_wikitext_nodes(wikitext, &cell.content)?;
                     cells.push(WikitextSimplifiedTableCell {
+                        is_header: cell.type_ == pwt::TableCellType::Heading,
                         attributes: cell_attributes,
                         content: cell_content,
                     });
