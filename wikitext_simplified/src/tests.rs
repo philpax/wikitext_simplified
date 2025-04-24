@@ -1,11 +1,13 @@
-use crate::simplification::WikitextSimplifiedListItem;
+use crate::simplification::{
+    DefinitionListItemType, TemplateParameter, WikitextSimplifiedDefinitionListItem,
+    WikitextSimplifiedListItem, WikitextSimplifiedNode as WSN,
+};
 
 use super::*;
 
 use std::sync::LazyLock;
 
 use wikitext_util::wikipedia_pwt_configuration;
-use WikitextSimplifiedNode as WSN;
 
 static PWT_CONFIGURATION: LazyLock<pwt::Configuration> = LazyLock::new(wikipedia_pwt_configuration);
 
@@ -1129,5 +1131,96 @@ fn test_warning_box_instantiated_table() {
         }
         .to_wikitext(),
         sample
+    );
+}
+
+#[test]
+fn test_definition_list() {
+    let wikitext = r#";Term 1
+:Definition 1
+;Term 2
+:Definition 2"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::DefinitionList {
+            items: vec![
+                WikitextSimplifiedDefinitionListItem {
+                    type_: DefinitionListItemType::Term,
+                    content: vec![WSN::Text {
+                        text: "Term 1".into()
+                    }]
+                },
+                WikitextSimplifiedDefinitionListItem {
+                    type_: DefinitionListItemType::Details,
+                    content: vec![WSN::Text {
+                        text: "Definition 1".into()
+                    }]
+                },
+                WikitextSimplifiedDefinitionListItem {
+                    type_: DefinitionListItemType::Term,
+                    content: vec![WSN::Text {
+                        text: "Term 2".into()
+                    }]
+                },
+                WikitextSimplifiedDefinitionListItem {
+                    type_: DefinitionListItemType::Details,
+                    content: vec![WSN::Text {
+                        text: "Definition 2".into()
+                    }]
+                }
+            ]
+        }]
+    );
+}
+
+#[test]
+fn test_definition_list_to_wikitext() {
+    let node = WSN::DefinitionList {
+        items: vec![
+            WikitextSimplifiedDefinitionListItem {
+                type_: DefinitionListItemType::Term,
+                content: vec![WSN::Text {
+                    text: "Term 1".into(),
+                }],
+            },
+            WikitextSimplifiedDefinitionListItem {
+                type_: DefinitionListItemType::Details,
+                content: vec![WSN::Text {
+                    text: "Definition 1".into(),
+                }],
+            },
+        ],
+    };
+    assert_eq!(node.to_wikitext(), ";Term 1\n:Definition 1\n");
+}
+
+#[test]
+fn test_definition_list_with_formatting() {
+    let wikitext = r#";'''Bold Term'''
+:''Italic Definition''"#;
+    let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
+    assert_eq!(
+        simplified,
+        vec![WSN::DefinitionList {
+            items: vec![
+                WikitextSimplifiedDefinitionListItem {
+                    type_: DefinitionListItemType::Term,
+                    content: vec![WSN::Bold {
+                        children: vec![WSN::Text {
+                            text: "Bold Term".into()
+                        }]
+                    }]
+                },
+                WikitextSimplifiedDefinitionListItem {
+                    type_: DefinitionListItemType::Details,
+                    content: vec![WSN::Italic {
+                        children: vec![WSN::Text {
+                            text: "Italic Definition".into()
+                        }]
+                    }]
+                }
+            ]
+        }]
     );
 }

@@ -232,6 +232,11 @@ pub enum WikitextSimplifiedNode {
         /// The items in the list
         items: Vec<WikitextSimplifiedListItem>,
     },
+    /// A definition list
+    DefinitionList {
+        /// The items in the list
+        items: Vec<WikitextSimplifiedDefinitionListItem>,
+    },
     /// A redirect node
     Redirect {
         /// The target page of the redirect
@@ -284,6 +289,34 @@ pub struct WikitextSimplifiedListItem {
     /// The content of the list item
     pub content: Vec<WikitextSimplifiedNode>,
 }
+/// A list item in a definition list
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct WikitextSimplifiedDefinitionListItem {
+    /// The type of list item
+    pub type_: DefinitionListItemType,
+    /// The content of the list item
+    pub content: Vec<WikitextSimplifiedNode>,
+}
+/// The type of a definition list item
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub enum DefinitionListItemType {
+    /// A term item (;)
+    Term,
+    /// A details item (:)
+    Details,
+}
+impl std::fmt::Display for DefinitionListItemType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Term => write!(f, ";"),
+            Self::Details => write!(f, ":"),
+        }
+    }
+}
 impl WikitextSimplifiedNode {
     /// Returns the type of this node.
     pub fn node_type(&self) -> &'static str {
@@ -306,6 +339,7 @@ impl WikitextSimplifiedNode {
             Self::Table { .. } => "table",
             Self::OrderedList { .. } => "ordered-list",
             Self::UnorderedList { .. } => "unordered-list",
+            Self::DefinitionList { .. } => "definition-list",
             Self::Redirect { .. } => "redirect",
             Self::HorizontalDivider => "horizontal-divider",
             Self::ParagraphBreak => "paragraph-break",
@@ -339,6 +373,7 @@ impl WikitextSimplifiedNode {
             | Self::Table { .. }
             | Self::OrderedList { .. }
             | Self::UnorderedList { .. }
+            | Self::DefinitionList { .. }
             | Self::Redirect { .. }
             | Self::HorizontalDivider
             | Self::ParagraphBreak
@@ -372,6 +407,7 @@ impl WikitextSimplifiedNode {
             | Self::Table { .. }
             | Self::OrderedList { .. }
             | Self::UnorderedList { .. }
+            | Self::DefinitionList { .. }
             | Self::Redirect { .. }
             | Self::HorizontalDivider
             | Self::ParagraphBreak
@@ -389,6 +425,7 @@ impl WikitextSimplifiedNode {
                 | Self::Table { .. }
                 | Self::OrderedList { .. }
                 | Self::UnorderedList { .. }
+                | Self::DefinitionList { .. }
         )
     }
 
@@ -563,6 +600,15 @@ impl WikitextSimplifiedNode {
                 }
                 result
             }
+            Self::DefinitionList { items } => {
+                let mut result = String::new();
+                for item in items {
+                    result.push_str(&item.type_.to_string());
+                    result.push_str(&nodes_to_wikitext(&item.content));
+                    result.push('\n');
+                }
+                result
+            }
             Self::Redirect { target } => {
                 format!("#REDIRECT [[{}]]", target)
             }
@@ -623,6 +669,13 @@ macro_rules! visit_children_impl {
             Self::UnorderedList { items } => {
                 for item in items.$iter_method().flat_map(|i| i.content.$iter_method()) {
                     item.$visit_method($visitor);
+                }
+            }
+            Self::DefinitionList { items } => {
+                for item in items.$iter_method() {
+                    for child in item.content.$iter_method() {
+                        child.$visit_method($visitor);
+                    }
                 }
             }
             Self::Template { .. }
@@ -1035,9 +1088,21 @@ pub fn simplify_wikitext_node(
                 items: simplified_items,
             }));
         }
-        pwt::Node::DefinitionList { .. } => {
-            // Temporarily ignore these
-            return Ok(None);
+        pwt::Node::DefinitionList { items, .. } => {
+            let mut simplified_items = vec![];
+            for item in items {
+                let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
+                simplified_items.push(WikitextSimplifiedDefinitionListItem {
+                    type_: match item.type_ {
+                        pwt::DefinitionListItemType::Term => DefinitionListItemType::Term,
+                        pwt::DefinitionListItemType::Details => DefinitionListItemType::Details,
+                    },
+                    content,
+                });
+            }
+            return Ok(Some(WSN::DefinitionList {
+                items: simplified_items,
+            }));
         }
         pwt::Node::Tag {
             name,

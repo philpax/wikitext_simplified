@@ -13,9 +13,10 @@ use parse_wiki_text_2 as pwt;
 
 mod simplification;
 pub use simplification::{
-    simplify_wikitext_node, simplify_wikitext_nodes, NodeStructureError, SimplificationError,
-    SimplificationErrorContext, TemplateParameter, WikitextSimplifiedNode,
-    WikitextSimplifiedTableCaption, WikitextSimplifiedTableCell, WikitextSimplifiedTableRow,
+    simplify_wikitext_node, simplify_wikitext_nodes, DefinitionListItemType, NodeStructureError,
+    SimplificationError, SimplificationErrorContext, TemplateParameter,
+    WikitextSimplifiedDefinitionListItem, WikitextSimplifiedNode, WikitextSimplifiedTableCaption,
+    WikitextSimplifiedTableCell, WikitextSimplifiedTableRow,
 };
 
 #[cfg(test)]
