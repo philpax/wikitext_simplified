@@ -777,6 +777,7 @@ pub fn simplify_wikitext_nodes(
     /// not be considered for stack-based tag closure matching.
     const FAKE_TAGS: [&str; 4] = ["br/", "hr/", "br", "hr"];
 
+    let mut text_start_override = None;
     for node in nodes {
         root_stack.set_current_node(node);
         match node {
@@ -890,7 +891,16 @@ pub fn simplify_wikitext_nodes(
                 root_stack.add_to_children(tag)?;
             }
             other => {
-                if let Some(simplified_node) = simplify_wikitext_node(wikitext, other)? {
+                if let Some((simplified_node, node_bounds)) =
+                    simplify_wikitext_node(wikitext, other, text_start_override)?
+                {
+                    // HACK: deal with `link_trail` by preserving the end of the link and forcing the next
+                    // text to start at the end of the link
+                    text_start_override = match (&simplified_node, node_bounds) {
+                        (WSN::Link { .. }, Some((_, end))) => Some(end),
+                        _ => None,
+                    };
+
                     root_stack.add_to_children(simplified_node)?;
                 }
             }
@@ -936,6 +946,7 @@ pub fn simplify_wikitext_nodes(
 pub fn simplify_wikitext_node(
     wikitext: &str,
     node: &pwt::Node,
+    text_start_override: Option<usize>,
 ) -> Result<Option<(WikitextSimplifiedNode, Option<(usize, usize)>)>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;
     match node {
@@ -1030,11 +1041,17 @@ pub fn simplify_wikitext_node(
             )));
         }
         pwt::Node::Text { value, start, end } => {
+            let text_start = text_start_override.unwrap_or(*start);
+            let text_start_offset = text_start.saturating_sub(*start);
+            let text = &value[text_start_offset..];
+            if text.is_empty() {
+                return Ok(None);
+            }
             return Ok(Some((
                 WSN::Text {
-                text: value.to_string(),
+                    text: text.to_string(),
                 },
-                Some((*start, *end)),
+                Some((text_start, *end)),
             )));
         }
         pwt::Node::CharacterEntity {

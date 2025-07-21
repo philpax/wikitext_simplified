@@ -249,10 +249,7 @@ pub fn wikipedia_pwt_configuration() -> pwt::Configuration {
             "timeline",
         ],
         file_namespaces: &["file", "image"],
-        // Wikipedia sets this to "abcdefghijklmnopqrstuvwxyz", but it complicates link parsing
-        // (by causing successor content to be double-parsed), and it's not relevant to what we're
-        // doing, so I'm content with just disabling it.
-        link_trail: "",
+        link_trail: "abcdefghijklmnopqrstuvwxyz",
         magic_words: &[
             "disambig",
             "expected_unconnected_page",

@@ -22,17 +22,16 @@ fn test_s_after_link() {
                 text: "cool ".into()
             },
             WSN::Link {
-                text: "thing".into(),
+                text: "things".into(),
                 title: "thing".into()
             },
             WSN::Text {
-                text: "s by cool ".into()
+                text: " by cool ".into()
             },
             WSN::Link {
-                text: "person".into(),
+                text: "persons".into(),
                 title: "Person".into()
             },
-            WSN::Text { text: "s".into() }
         ]
     )
 }
