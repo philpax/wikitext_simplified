@@ -7,10 +7,41 @@
 pub use parse_wiki_text_2;
 use parse_wiki_text_2 as pwt;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The type of a node in the wikitext, as noted by [`NodeMetadata::name`].
+#[allow(missing_docs)]
+pub enum NodeMetadataType {
+    Bold,
+    BoldItalic,
+    Category,
+    CharacterEntity,
+    Comment,
+    DefinitionList,
+    EndTag,
+    ExternalLink,
+    Heading,
+    HorizontalDivider,
+    Image,
+    Italic,
+    Link,
+    MagicWord,
+    OrderedList,
+    ParagraphBreak,
+    Parameter,
+    Preformatted,
+    Redirect,
+    StartTag,
+    Table,
+    Tag,
+    Template,
+    Text,
+    UnorderedList,
+}
+
 /// Metadata about a wikitext node, including its type, position in the source text, and child nodes.
 pub struct NodeMetadata<'a> {
-    /// The name/type of the node (e.g. "bold", "link", "template")
-    pub name: &'static str,
+    /// The type of the node (e.g. "bold", "link", "template")
+    pub ty: NodeMetadataType,
     /// The starting position of the node in the source text
     pub start: usize,
     /// The ending position of the node in the source text
@@ -20,13 +51,13 @@ pub struct NodeMetadata<'a> {
 }
 impl<'a> NodeMetadata<'a> {
     fn new(
-        name: &'static str,
+        ty: NodeMetadataType,
         start: usize,
         end: usize,
         children: Option<&'a [pwt::Node<'a>]>,
     ) -> Self {
         Self {
-            name,
+            ty,
             start,
             end,
             children,
@@ -39,67 +70,68 @@ impl<'a> NodeMetadata<'a> {
     /// from a [`parse_wiki_text_2`] node.
     pub fn for_node(node: &'a pwt::Node) -> NodeMetadata<'a> {
         use NodeMetadata as NM;
+        use NodeMetadataType as NMT;
         match node {
-            pwt::Node::Bold { end, start } => NM::new("bold", *start, *end, None),
-            pwt::Node::BoldItalic { end, start } => NM::new("bold_italic", *start, *end, None),
-            pwt::Node::Category { end, start, .. } => NM::new("category", *start, *end, None),
+            pwt::Node::Bold { end, start } => NM::new(NMT::Bold, *start, *end, None),
+            pwt::Node::BoldItalic { end, start } => NM::new(NMT::BoldItalic, *start, *end, None),
+            pwt::Node::Category { end, start, .. } => NM::new(NMT::Category, *start, *end, None),
             pwt::Node::CharacterEntity { end, start, .. } => {
-                NM::new("character_entity", *start, *end, None)
+                NM::new(NMT::CharacterEntity, *start, *end, None)
             }
-            pwt::Node::Comment { end, start } => NM::new("comment", *start, *end, None),
+            pwt::Node::Comment { end, start } => NM::new(NMT::Comment, *start, *end, None),
             pwt::Node::DefinitionList {
                 end,
                 start,
                 items: _,
-            } => NM::new("definition_list", *start, *end, None),
-            pwt::Node::EndTag { end, start, .. } => NM::new("end_tag", *start, *end, None),
+            } => NM::new(NMT::DefinitionList, *start, *end, None),
+            pwt::Node::EndTag { end, start, .. } => NM::new(NMT::EndTag, *start, *end, None),
             pwt::Node::ExternalLink { end, nodes, start } => {
-                NM::new("external_link", *start, *end, Some(nodes))
+                NM::new(NMT::ExternalLink, *start, *end, Some(nodes))
             }
             pwt::Node::Heading {
                 end, start, nodes, ..
-            } => NM::new("heading", *start, *end, Some(nodes)),
+            } => NM::new(NMT::Heading, *start, *end, Some(nodes)),
             pwt::Node::HorizontalDivider { end, start } => {
-                NM::new("horizontal_divider", *start, *end, None)
+                NM::new(NMT::HorizontalDivider, *start, *end, None)
             }
             pwt::Node::Image {
                 end, start, text, ..
-            } => NM::new("image", *start, *end, Some(text)),
-            pwt::Node::Italic { end, start } => NM::new("italic", *start, *end, None),
+            } => NM::new(NMT::Image, *start, *end, Some(text)),
+            pwt::Node::Italic { end, start } => NM::new(NMT::Italic, *start, *end, None),
             pwt::Node::Link {
                 end, start, text, ..
-            } => NM::new("link", *start, *end, Some(text)),
-            pwt::Node::MagicWord { end, start } => NM::new("magic_word", *start, *end, None),
+            } => NM::new(NMT::Link, *start, *end, Some(text)),
+            pwt::Node::MagicWord { end, start } => NM::new(NMT::MagicWord, *start, *end, None),
             pwt::Node::OrderedList {
                 end,
                 start,
                 items: _,
-            } => NM::new("ordered_list", *start, *end, None),
+            } => NM::new(NMT::OrderedList, *start, *end, None),
             pwt::Node::ParagraphBreak { end, start } => {
-                NM::new("paragraph_break", *start, *end, None)
+                NM::new(NMT::ParagraphBreak, *start, *end, None)
             }
-            pwt::Node::Parameter { end, start, .. } => NM::new("parameter", *start, *end, None),
+            pwt::Node::Parameter { end, start, .. } => NM::new(NMT::Parameter, *start, *end, None),
             pwt::Node::Preformatted { end, start, nodes } => {
-                NM::new("preformatted", *start, *end, Some(nodes))
+                NM::new(NMT::Preformatted, *start, *end, Some(nodes))
             }
-            pwt::Node::Redirect { end, start, .. } => NM::new("redirect", *start, *end, None),
-            pwt::Node::StartTag { end, start, .. } => NM::new("start_tag", *start, *end, None),
+            pwt::Node::Redirect { end, start, .. } => NM::new(NMT::Redirect, *start, *end, None),
+            pwt::Node::StartTag { end, start, .. } => NM::new(NMT::StartTag, *start, *end, None),
             pwt::Node::Table {
                 end,
                 start,
                 rows: _,
                 ..
-            } => NM::new("table", *start, *end, None),
+            } => NM::new(NMT::Table, *start, *end, None),
             pwt::Node::Tag {
                 end, start, nodes, ..
-            } => NM::new("tag", *start, *end, Some(nodes.as_slice())),
-            pwt::Node::Template { end, start, .. } => NM::new("template", *start, *end, None),
-            pwt::Node::Text { end, start, .. } => NM::new("text", *start, *end, None),
+            } => NM::new(NMT::Tag, *start, *end, Some(nodes.as_slice())),
+            pwt::Node::Template { end, start, .. } => NM::new(NMT::Template, *start, *end, None),
+            pwt::Node::Text { end, start, .. } => NM::new(NMT::Text, *start, *end, None),
             pwt::Node::UnorderedList {
                 end,
                 start,
                 items: _,
-            } => NM::new("unordered_list", *start, *end, None),
+            } => NM::new(NMT::UnorderedList, *start, *end, None),
         }
     }
 }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use parse_wiki_text_2 as pwt;
-use wikitext_util::{nodes_inner_text, nodes_wikitext, NodeMetadata};
+use wikitext_util::{nodes_inner_text, nodes_wikitext, NodeMetadata, NodeMetadataType};
 
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
@@ -12,7 +12,7 @@ pub enum SimplificationError {
     /// An unknown node type was encountered
     UnknownNode {
         /// The type of node that caused the error
-        node_type: &'static str,
+        node_type: NodeMetadataType,
         /// The context of where the error occurred
         context: SimplificationErrorContext,
     },
@@ -30,7 +30,7 @@ impl std::fmt::Display for SimplificationError {
             SimplificationError::UnknownNode { node_type, context } => {
                 write!(
                     f,
-                    "Unknown node type '{}' at position {}-{}: '{}'",
+                    "Unknown node type '{:?}' at position {}-{}: '{}'",
                     node_type, context.start, context.end, context.content
                 )
             }
@@ -984,8 +984,8 @@ pub fn simplify_wikitext_node(
 
             return Ok(Some((
                 WSN::Template {
-                name: nodes_inner_text(name),
-                parameters: new_parameters,
+                    name: nodes_inner_text(name),
+                    parameters: new_parameters,
                 },
                 Some((*start, *end)),
             )));
@@ -1002,8 +1002,8 @@ pub fn simplify_wikitext_node(
         } => {
             return Ok(Some((
                 WSN::Heading {
-                level: *level,
-                children: simplify_wikitext_nodes(wikitext, nodes)?,
+                    level: *level,
+                    children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
                 Some((*start, *end)),
             )));
@@ -1020,8 +1020,8 @@ pub fn simplify_wikitext_node(
         } => {
             return Ok(Some((
                 WSN::Link {
-                text: nodes_wikitext(wikitext, text),
-                title: target.to_string(),
+                    text: nodes_wikitext(wikitext, text),
+                    title: target.to_string(),
                 },
                 Some((*start, *end)),
             )));
@@ -1034,8 +1034,8 @@ pub fn simplify_wikitext_node(
                 .unwrap_or((&inner, None));
             return Ok(Some((
                 WSN::ExtLink {
-                link: link.to_string(),
-                text: text.map(|s| s.to_string()),
+                    link: link.to_string(),
+                    text: text.map(|s| s.to_string()),
                 },
                 Some((*start, *end)),
             )));
@@ -1061,7 +1061,7 @@ pub fn simplify_wikitext_node(
         } => {
             return Ok(Some((
                 WSN::Text {
-                text: character.to_string(),
+                    text: character.to_string(),
                 },
                 Some((*start, *end)),
             )));
@@ -1119,9 +1119,9 @@ pub fn simplify_wikitext_node(
 
             return Ok(Some((
                 WSN::Table {
-                attributes: simplify_wikitext_nodes(wikitext, attributes)?,
-                captions: simplified_captions,
-                rows: simplified_rows,
+                    attributes: simplify_wikitext_nodes(wikitext, attributes)?,
+                    captions: simplified_captions,
+                    rows: simplified_rows,
                 },
                 Some((*start, *end)),
             )));
@@ -1134,7 +1134,7 @@ pub fn simplify_wikitext_node(
             }
             return Ok(Some((
                 WSN::OrderedList {
-                items: simplified_items,
+                    items: simplified_items,
                 },
                 Some((*start, *end)),
             )));
@@ -1147,7 +1147,7 @@ pub fn simplify_wikitext_node(
             }
             return Ok(Some((
                 WSN::UnorderedList {
-                items: simplified_items,
+                    items: simplified_items,
                 },
                 Some((*start, *end)),
             )));
@@ -1166,7 +1166,7 @@ pub fn simplify_wikitext_node(
             }
             return Ok(Some((
                 WSN::DefinitionList {
-                items: simplified_items,
+                    items: simplified_items,
                 },
                 Some((*start, *end)),
             )));
@@ -1189,9 +1189,9 @@ pub fn simplify_wikitext_node(
 
             return Ok(Some((
                 WSN::Tag {
-                name: name.to_string(),
-                attributes: extract_tag_attributes(opening_tag),
-                children: simplify_wikitext_nodes(wikitext, nodes)?,
+                    name: name.to_string(),
+                    attributes: extract_tag_attributes(opening_tag),
+                    children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
                 Some((*start, *end)),
             )));
@@ -1199,7 +1199,7 @@ pub fn simplify_wikitext_node(
         pwt::Node::Preformatted { nodes, start, end } => {
             return Ok(Some((
                 WSN::Preformatted {
-                children: simplify_wikitext_nodes(wikitext, nodes)?,
+                    children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
                 Some((*start, *end)),
             )));
@@ -1212,11 +1212,11 @@ pub fn simplify_wikitext_node(
         } => {
             return Ok(Some((
                 WSN::TemplateParameterUse {
-                name: nodes_inner_text(name),
-                default: default
-                    .as_deref()
-                    .map(|nodes| simplify_wikitext_nodes(wikitext, nodes))
-                    .transpose()?,
+                    name: nodes_inner_text(name),
+                    default: default
+                        .as_deref()
+                        .map(|nodes| simplify_wikitext_nodes(wikitext, nodes))
+                        .transpose()?,
                 },
                 Some((*start, *end)),
             )));
@@ -1224,7 +1224,7 @@ pub fn simplify_wikitext_node(
         pwt::Node::Redirect { target, start, end } => {
             return Ok(Some((
                 WSN::Redirect {
-                target: target.to_string(),
+                    target: target.to_string(),
                 },
                 Some((*start, *end)),
             )));
@@ -1242,7 +1242,7 @@ pub fn simplify_wikitext_node(
     }
     let metadata = NodeMetadata::for_node(node);
     Err(SimplificationError::UnknownNode {
-        node_type: metadata.name,
+        node_type: metadata.ty,
         context: SimplificationErrorContext::from_node_metadata(wikitext, &metadata),
     })
 }
