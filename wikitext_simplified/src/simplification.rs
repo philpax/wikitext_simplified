@@ -98,18 +98,14 @@ impl std::fmt::Display for NodeStructureError {
             NodeStructureError::StackUnderflow => write!(f, "Stack underflow"),
             NodeStructureError::StackOverflow => write!(f, "Stack overflow"),
             NodeStructureError::NoChildren { parent_node_type } => {
-                write!(f, "Node of type '{}' has no children", parent_node_type)
+                write!(f, "Node of type '{parent_node_type}' has no children")
             }
             NodeStructureError::MissingBoldLayer => {
                 write!(f, "Bold-italic found without a bold layer")
             }
             NodeStructureError::UnclosedFormatting => write!(f, "Unclosed formatting node"),
             NodeStructureError::TagClosureMismatch { expected, actual } => {
-                write!(
-                    f,
-                    "Tag closure mismatch: {} (expected {})",
-                    actual, expected
-                )
+                write!(f, "Tag closure mismatch: {actual} (expected {expected})")
             }
         }
     }
@@ -464,12 +460,12 @@ impl WikitextSimplifiedNode {
                     if params.is_empty() {
                         name.clone()
                     } else {
-                        format!("{}|{}", name, params)
+                        format!("{name}|{params}")
                     }
                 )
             }
             Self::TemplateParameterUse { name, default } => {
-                let mut result = format!("{{{{{}}}}}", name);
+                let mut result = format!("{{{{{name}}}}}");
                 if let Some(default_nodes) = default {
                     result.push('|');
                     result.push_str(&nodes_to_wikitext(default_nodes));
@@ -482,16 +478,16 @@ impl WikitextSimplifiedNode {
             }
             Self::Link { text, title } => {
                 if text == title {
-                    format!("[[{}]]", title)
+                    format!("[[{title}]]")
                 } else {
-                    format!("[[{}|{}]]", title, text)
+                    format!("[[{title}|{text}]]")
                 }
             }
             Self::ExtLink { link, text } => {
                 if let Some(text) = text {
-                    format!("[{} {}]", link, text)
+                    format!("[{link} {text}]")
                 } else {
-                    format!("[{}]", link)
+                    format!("[{link}]")
                 }
             }
             Self::Bold { children } => {
@@ -610,7 +606,7 @@ impl WikitextSimplifiedNode {
                 result
             }
             Self::Redirect { target } => {
-                format!("#REDIRECT [[{}]]", target)
+                format!("#REDIRECT [[{target}]]")
             }
             Self::HorizontalDivider => "----".to_string(),
             Self::ParagraphBreak => "<br/>".to_string(),
@@ -943,6 +939,7 @@ pub fn simplify_wikitext_nodes(
 /// # Errors
 ///
 /// This function will return an error if it encounters an unknown node type.
+#[allow(clippy::type_complexity)]
 pub fn simplify_wikitext_node(
     wikitext: &str,
     node: &pwt::Node,
@@ -1339,7 +1336,7 @@ fn extract_tag_attributes(opening_tag: &str) -> Option<String> {
             let trimmed = stripped.trim();
             // Ensure the attribute string ends with a quote if it starts with one
             if trimmed.starts_with('"') && !trimmed.ends_with('"') {
-                format!("{}\"", trimmed)
+                format!("{trimmed}\"")
             } else {
                 trimmed.to_string()
             }
