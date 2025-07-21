@@ -928,17 +928,22 @@ pub fn simplify_wikitext_nodes(
 /// format into the simplified format. It handles various node types including templates,
 /// links, text, and formatting nodes.
 ///
+/// It will return the bounds of the node in the original wikitext, if available.
+///
 /// # Errors
 ///
 /// This function will return an error if it encounters an unknown node type.
 pub fn simplify_wikitext_node(
     wikitext: &str,
     node: &pwt::Node,
-) -> Result<Option<WikitextSimplifiedNode>, SimplificationError> {
+) -> Result<Option<(WikitextSimplifiedNode, Option<(usize, usize)>)>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;
     match node {
         pwt::Node::Template {
-            name, parameters, ..
+            name,
+            parameters,
+            start,
+            end,
         } => {
             let mut unnamed_parameter_index = 1;
             let mut new_parameters = vec![];
@@ -966,54 +971,86 @@ pub fn simplify_wikitext_node(
                 new_parameters.push(TemplateParameter { name, value });
             }
 
-            return Ok(Some(WSN::Template {
+            return Ok(Some((
+                WSN::Template {
                 name: nodes_inner_text(name),
                 parameters: new_parameters,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
         pwt::Node::MagicWord { .. } => {
             // Making the current assumption that we don't care about these
             return Ok(None);
         }
-        pwt::Node::Heading { level, nodes, .. } => {
-            return Ok(Some(WSN::Heading {
+        pwt::Node::Heading {
+            level,
+            nodes,
+            start,
+            end,
+        } => {
+            return Ok(Some((
+                WSN::Heading {
                 level: *level,
                 children: simplify_wikitext_nodes(wikitext, nodes)?,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
         pwt::Node::Bold { .. } | pwt::Node::BoldItalic { .. } | pwt::Node::Italic { .. } => {
             // We can't do anything at this level
             return Ok(None);
         }
-        pwt::Node::Link { target, text, .. } => {
-            return Ok(Some(WSN::Link {
+        pwt::Node::Link {
+            target,
+            text,
+            start,
+            end,
+        } => {
+            return Ok(Some((
+                WSN::Link {
                 text: nodes_wikitext(wikitext, text),
                 title: target.to_string(),
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::ExternalLink { nodes, .. } => {
+        pwt::Node::ExternalLink { nodes, start, end } => {
             let inner = nodes_wikitext(wikitext, nodes);
             let (link, text) = inner
                 .split_once(' ')
                 .map(|(l, t)| (l, Some(t)))
                 .unwrap_or((&inner, None));
-            return Ok(Some(WSN::ExtLink {
+            return Ok(Some((
+                WSN::ExtLink {
                 link: link.to_string(),
                 text: text.map(|s| s.to_string()),
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::Text { value, .. } => {
-            return Ok(Some(WSN::Text {
+        pwt::Node::Text { value, start, end } => {
+            return Ok(Some((
+                WSN::Text {
                 text: value.to_string(),
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::CharacterEntity { character, .. } => {
-            return Ok(Some(WSN::Text {
+        pwt::Node::CharacterEntity {
+            character,
+            start,
+            end,
+        } => {
+            return Ok(Some((
+                WSN::Text {
                 text: character.to_string(),
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::ParagraphBreak { .. } => {
-            return Ok(Some(WSN::ParagraphBreak));
+        pwt::Node::ParagraphBreak { start, end } => {
+            return Ok(Some((WSN::ParagraphBreak, Some((*start, *end)))));
         }
         pwt::Node::Category { .. } | pwt::Node::Comment { .. } | pwt::Node::Image { .. } => {
             // Don't care
@@ -1023,7 +1060,8 @@ pub fn simplify_wikitext_node(
             attributes,
             captions,
             rows,
-            ..
+            start,
+            end,
         } => {
             // Convert captions
             let mut simplified_captions = vec![];
@@ -1062,33 +1100,42 @@ pub fn simplify_wikitext_node(
                 });
             }
 
-            return Ok(Some(WSN::Table {
+            return Ok(Some((
+                WSN::Table {
                 attributes: simplify_wikitext_nodes(wikitext, attributes)?,
                 captions: simplified_captions,
                 rows: simplified_rows,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::OrderedList { items, .. } => {
+        pwt::Node::OrderedList { items, start, end } => {
             let mut simplified_items = vec![];
             for item in items {
                 let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
                 simplified_items.push(WikitextSimplifiedListItem { content });
             }
-            return Ok(Some(WSN::OrderedList {
+            return Ok(Some((
+                WSN::OrderedList {
                 items: simplified_items,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::UnorderedList { items, .. } => {
+        pwt::Node::UnorderedList { items, start, end } => {
             let mut simplified_items = vec![];
             for item in items {
                 let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
                 simplified_items.push(WikitextSimplifiedListItem { content });
             }
-            return Ok(Some(WSN::UnorderedList {
+            return Ok(Some((
+                WSN::UnorderedList {
                 items: simplified_items,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::DefinitionList { items, .. } => {
+        pwt::Node::DefinitionList { items, start, end } => {
             let mut simplified_items = vec![];
             for item in items {
                 let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
@@ -1100,16 +1147,18 @@ pub fn simplify_wikitext_node(
                     content,
                 });
             }
-            return Ok(Some(WSN::DefinitionList {
+            return Ok(Some((
+                WSN::DefinitionList {
                 items: simplified_items,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
         pwt::Node::Tag {
             name,
             nodes,
             start,
             end,
-            ..
         } => {
             // Special handling for ref tags - ignore them
             if name == "ref" || name == "references" || name == "gallery" || name == "nowiki" {
@@ -1121,39 +1170,56 @@ pub fn simplify_wikitext_node(
             let closing_bracket_pos = tag_content.find('>').unwrap_or(tag_content.len());
             let opening_tag = &tag_content[..closing_bracket_pos];
 
-            return Ok(Some(WSN::Tag {
+            return Ok(Some((
+                WSN::Tag {
                 name: name.to_string(),
                 attributes: extract_tag_attributes(opening_tag),
                 children: simplify_wikitext_nodes(wikitext, nodes)?,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::Preformatted { nodes, .. } => {
-            return Ok(Some(WSN::Preformatted {
+        pwt::Node::Preformatted { nodes, start, end } => {
+            return Ok(Some((
+                WSN::Preformatted {
                 children: simplify_wikitext_nodes(wikitext, nodes)?,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::Parameter { name, default, .. } => {
-            return Ok(Some(WSN::TemplateParameterUse {
+        pwt::Node::Parameter {
+            name,
+            default,
+            start,
+            end,
+        } => {
+            return Ok(Some((
+                WSN::TemplateParameterUse {
                 name: nodes_inner_text(name),
                 default: default
                     .as_deref()
                     .map(|nodes| simplify_wikitext_nodes(wikitext, nodes))
                     .transpose()?,
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::Redirect { target, .. } => {
-            return Ok(Some(WSN::Redirect {
+        pwt::Node::Redirect { target, start, end } => {
+            return Ok(Some((
+                WSN::Redirect {
                 target: target.to_string(),
-            }));
+                },
+                Some((*start, *end)),
+            )));
         }
-        pwt::Node::HorizontalDivider { .. } => {
-            return Ok(Some(WSN::HorizontalDivider));
+        pwt::Node::HorizontalDivider { start, end } => {
+            return Ok(Some((WSN::HorizontalDivider, Some((*start, *end)))));
         }
-        pwt::Node::StartTag { name, .. } if name == "hr" || name == "hr/" => {
-            return Ok(Some(WSN::HorizontalDivider));
+        pwt::Node::StartTag { name, start, end } if name == "hr" || name == "hr/" => {
+            return Ok(Some((WSN::HorizontalDivider, Some((*start, *end)))));
         }
-        pwt::Node::StartTag { name, .. } if name == "br" || name == "br/" => {
-            return Ok(Some(WSN::ParagraphBreak));
+        pwt::Node::StartTag { name, start, end } if name == "br" || name == "br/" => {
+            return Ok(Some((WSN::ParagraphBreak, Some((*start, *end)))));
         }
         _ => {}
     }
