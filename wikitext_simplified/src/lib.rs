@@ -14,7 +14,7 @@ use parse_wiki_text_2 as pwt;
 mod simplification;
 pub use simplification::{
     simplify_wikitext_node, simplify_wikitext_nodes, DefinitionListItemType, NodeStructureError,
-    SimplificationError, SimplificationErrorContext, TemplateParameter,
+    SimplificationError, SimplificationErrorContext, Span, Spanned, TemplateParameter,
     WikitextSimplifiedDefinitionListItem, WikitextSimplifiedNode, WikitextSimplifiedTableCaption,
     WikitextSimplifiedTableCell, WikitextSimplifiedTableRow,
 };
@@ -50,7 +50,7 @@ impl std::error::Error for ParseAndSimplifyWikitextError<'_> {}
 pub fn parse_and_simplify_wikitext<'a>(
     wikitext: &'a str,
     pwt_configuration: &pwt::Configuration,
-) -> Result<Vec<WikitextSimplifiedNode>, ParseAndSimplifyWikitextError<'a>> {
+) -> Result<Vec<Spanned<WikitextSimplifiedNode>>, ParseAndSimplifyWikitextError<'a>> {
     let output = pwt_configuration
         .parse(wikitext)
         .map_err(ParseAndSimplifyWikitextError::ParseError)?;
