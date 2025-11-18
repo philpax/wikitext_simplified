@@ -18,7 +18,7 @@ pub struct Span {
 }
 
 /// A helper type that wraps a value with its span in the source text
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Spanned<T> {
@@ -27,15 +27,6 @@ pub struct Spanned<T> {
     /// The span of this value in the source text
     pub span: Span,
 }
-
-// Implement PartialEq to only compare values, not spans
-impl<T: PartialEq> PartialEq for Spanned<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
-    }
-}
-
-impl<T: Eq> Eq for Spanned<T> {}
 
 /// Errors that can occur during simplification of wikitext nodes
 #[derive(Debug)]
@@ -1285,41 +1276,10 @@ pub fn simplify_wikitext_node(
         }
         _ => {}
     }
-    // Extract span directly from the node instead of using NodeMetadata
-    let (start, end, node_type) = match node {
-        pwt::Node::Bold { start, end } => (*start, *end, NodeMetadataType::Bold),
-        pwt::Node::BoldItalic { start, end } => (*start, *end, NodeMetadataType::BoldItalic),
-        pwt::Node::Category { start, end, .. } => (*start, *end, NodeMetadataType::Category),
-        pwt::Node::CharacterEntity { start, end, .. } => (*start, *end, NodeMetadataType::CharacterEntity),
-        pwt::Node::Comment { start, end } => (*start, *end, NodeMetadataType::Comment),
-        pwt::Node::DefinitionList { start, end, .. } => (*start, *end, NodeMetadataType::DefinitionList),
-        pwt::Node::EndTag { start, end, .. } => (*start, *end, NodeMetadataType::EndTag),
-        pwt::Node::ExternalLink { start, end, .. } => (*start, *end, NodeMetadataType::ExternalLink),
-        pwt::Node::Heading { start, end, .. } => (*start, *end, NodeMetadataType::Heading),
-        pwt::Node::HorizontalDivider { start, end } => (*start, *end, NodeMetadataType::HorizontalDivider),
-        pwt::Node::Image { start, end, .. } => (*start, *end, NodeMetadataType::Image),
-        pwt::Node::Italic { start, end } => (*start, *end, NodeMetadataType::Italic),
-        pwt::Node::Link { start, end, .. } => (*start, *end, NodeMetadataType::Link),
-        pwt::Node::MagicWord { start, end } => (*start, *end, NodeMetadataType::MagicWord),
-        pwt::Node::OrderedList { start, end, .. } => (*start, *end, NodeMetadataType::OrderedList),
-        pwt::Node::ParagraphBreak { start, end } => (*start, *end, NodeMetadataType::ParagraphBreak),
-        pwt::Node::Parameter { start, end, .. } => (*start, *end, NodeMetadataType::Parameter),
-        pwt::Node::Preformatted { start, end, .. } => (*start, *end, NodeMetadataType::Preformatted),
-        pwt::Node::Redirect { start, end, .. } => (*start, *end, NodeMetadataType::Redirect),
-        pwt::Node::StartTag { start, end, .. } => (*start, *end, NodeMetadataType::StartTag),
-        pwt::Node::Table { start, end, .. } => (*start, *end, NodeMetadataType::Table),
-        pwt::Node::Tag { start, end, .. } => (*start, *end, NodeMetadataType::Tag),
-        pwt::Node::Template { start, end, .. } => (*start, *end, NodeMetadataType::Template),
-        pwt::Node::Text { start, end, .. } => (*start, *end, NodeMetadataType::Text),
-        pwt::Node::UnorderedList { start, end, .. } => (*start, *end, NodeMetadataType::UnorderedList),
-    };
+    let metadata = NodeMetadata::for_node(node);
     Err(SimplificationError::UnknownNode {
-        node_type,
-        context: SimplificationErrorContext {
-            content: wikitext[start..end].to_string(),
-            start,
-            end,
-        },
+        node_type: metadata.ty,
+        context: SimplificationErrorContext::from_node_metadata(wikitext, &metadata),
     })
 }
 

@@ -11,7 +11,16 @@ use wikitext_util::wikipedia_pwt_configuration;
 
 static PWT_CONFIGURATION: LazyLock<pwt::Configuration> = LazyLock::new(wikipedia_pwt_configuration);
 
-// Helper function to create a Spanned node with a dummy span
+// Helper function to create a Spanned node with specific span
+fn sp(value: WSN, start: usize, end: usize) -> Spanned<WSN> {
+    Spanned {
+        value,
+        span: Span { start, end },
+    }
+}
+
+// Helper function to create a Spanned node with a dummy span (for tests that don't care about spans)
+#[allow(dead_code)]
 fn spanned(value: WSN) -> Spanned<WSN> {
     Spanned {
         value,
@@ -19,7 +28,7 @@ fn spanned(value: WSN) -> Spanned<WSN> {
     }
 }
 
-// Helper macro to wrap all nodes in a vec with Spanned
+// Helper macro to wrap all nodes in a vec with dummy Spanned (for tests that don't care about spans)
 macro_rules! spanned_vec {
     [$($node:expr),* $(,)?] => {
         vec![$(spanned($node)),*]
@@ -32,21 +41,21 @@ fn test_s_after_link() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![
-            WSN::Text {
+        vec![
+            sp(WSN::Text {
                 text: "cool ".into()
-            },
-            WSN::Link {
+            }, 0, 5),
+            sp(WSN::Link {
                 text: "things".into(),
                 title: "thing".into()
-            },
-            WSN::Text {
+            }, 5, 15),
+            sp(WSN::Text {
                 text: " by cool ".into()
-            },
-            WSN::Link {
+            }, 15, 24),
+            sp(WSN::Link {
                 text: "persons".into(),
                 title: "Person".into()
-            },
+            }, 24, 42),
         ]
     )
 }
@@ -110,12 +119,12 @@ fn can_parse_heading() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Heading {
+        vec![sp(WSN::Heading {
             level: 2,
-            children: spanned_vec![WSN::Text {
+            children: vec![sp(WSN::Text {
                 text: "Heading".into(),
-            }],
-        }]
+            }, 2, 9)],
+        }, 0, 11)]
     );
 }
 
@@ -125,9 +134,9 @@ fn test_basic_text() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Text {
+        vec![sp(WSN::Text {
             text: "Hello, world!".into()
-        }]
+        }, 0, 13)]
     );
 }
 
@@ -137,11 +146,11 @@ fn test_bold_text() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Bold {
-            children: spanned_vec![WSN::Text {
+        vec![sp(WSN::Bold {
+            children: vec![sp(WSN::Text {
                 text: "bold text".into()
-            }]
-        }]
+            }, 3, 12)]
+        }, 0, 15)]
     );
 }
 
@@ -151,11 +160,11 @@ fn test_italic_text() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Italic {
-            children: spanned_vec![WSN::Text {
+        vec![sp(WSN::Italic {
+            children: vec![sp(WSN::Text {
                 text: "italic text".into()
-            }]
-        }]
+            }, 2, 13)]
+        }, 0, 15)]
     );
 }
 
@@ -165,13 +174,13 @@ fn test_bold_italic_text() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Bold {
-            children: spanned_vec![WSN::Italic {
-                children: spanned_vec![WSN::Text {
+        vec![sp(WSN::Bold {
+            children: vec![sp(WSN::Italic {
+                children: vec![sp(WSN::Text {
                     text: "bold italic text".into()
-                }]
-            }]
-        }]
+                }, 5, 21)]
+            }, 0, 26)]
+        }, 0, 26)]
     );
 }
 
@@ -218,10 +227,10 @@ fn test_internal_link() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Link {
+        vec![sp(WSN::Link {
             text: "Main Page".into(),
             title: "Main Page".into()
-        }]
+        }, 0, 13)]
     );
 }
 
@@ -231,10 +240,10 @@ fn test_internal_link_with_text() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Link {
+        vec![sp(WSN::Link {
             text: "Home".into(),
             title: "Main Page".into()
-        }]
+        }, 0, 18)]
     );
 }
 
@@ -244,10 +253,10 @@ fn test_external_link() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::ExtLink {
+        vec![sp(WSN::ExtLink {
             link: "https://example.com".into(),
             text: None
-        }]
+        }, 0, 21)]
     );
 }
 
@@ -257,10 +266,10 @@ fn test_external_link_with_text() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::ExtLink {
+        vec![sp(WSN::ExtLink {
             link: "https://example.com".into(),
             text: Some("Example".into())
-        }]
+        }, 0, 29)]
     );
 }
 
@@ -270,10 +279,10 @@ fn test_simple_template() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Template {
+        vec![sp(WSN::Template {
             name: "Template".into(),
             parameters: vec![]
-        }]
+        }, 0, 12)]
     );
 }
 
@@ -283,7 +292,7 @@ fn test_template_with_parameters() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Template {
+        vec![sp(WSN::Template {
             name: "Template".into(),
             parameters: vec![
                 TemplateParameter {
@@ -295,7 +304,7 @@ fn test_template_with_parameters() {
                     value: "value2".into()
                 }
             ]
-        }]
+        }, 0, 40)]
     );
 }
 
@@ -305,7 +314,7 @@ fn test_template_with_unnamed_parameters() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Template {
+        vec![sp(WSN::Template {
             name: "Template".into(),
             parameters: vec![
                 TemplateParameter {
@@ -317,7 +326,7 @@ fn test_template_with_unnamed_parameters() {
                     value: "value2".into()
                 }
             ]
-        }]
+        }, 0, 26)]
     );
 }
 
@@ -429,14 +438,14 @@ fn test_paragraph_breaks() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![
-            WSN::Text {
+        vec![
+            sp(WSN::Text {
                 text: "Paragraph 1".into()
-            },
-            WSN::ParagraphBreak,
-            WSN::Text {
+            }, 0, 11),
+            sp(WSN::ParagraphBreak, 11, 13),
+            sp(WSN::Text {
                 text: "Paragraph 2".into()
-            }
+            }, 13, 24)
         ]
     );
 }
@@ -605,9 +614,9 @@ fn test_redirect() {
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
     assert_eq!(
         simplified,
-        spanned_vec![WSN::Redirect {
+        vec![sp(WSN::Redirect {
             target: "Target Page".into()
-        }]
+        }, 0, 25)]
     );
 }
 
@@ -692,7 +701,7 @@ end)
 fn can_handle_horizontal_divider() {
     let wikitext = "----";
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
-    assert_eq!(simplified, spanned_vec![WSN::HorizontalDivider]);
+    assert_eq!(simplified, vec![sp(WSN::HorizontalDivider, 0, 4)]);
 }
 
 #[test]
