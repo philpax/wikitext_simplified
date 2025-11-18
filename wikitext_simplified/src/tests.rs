@@ -19,22 +19,6 @@ fn sp(value: WSN, start: usize, end: usize) -> Spanned<WSN> {
     }
 }
 
-// Helper function to create a Spanned node with a dummy span (for tests that don't care about spans)
-#[allow(dead_code)]
-fn spanned(value: WSN) -> Spanned<WSN> {
-    Spanned {
-        value,
-        span: Span { start: 0, end: 0 },
-    }
-}
-
-// Helper macro to wrap all nodes in a vec with dummy Spanned (for tests that don't care about spans)
-macro_rules! spanned_vec {
-    [$($node:expr),* $(,)?] => {
-        vec![$(spanned($node)),*]
-    };
-}
-
 #[test]
 fn test_s_after_link() {
     let wikitext = "cool [[thing]]s by cool [[Person|person]]s";
@@ -77,7 +61,7 @@ fn can_parse_wikitext_in_link() {
 fn will_gracefully_ignore_refs() {
     let wikitext = r#"<ref name=bigtakeover>{{cite web|author=Kristen Sollee|title=Japanese Rock on NPR|work=[[The Big Takeover]]|date=2006-06-25|url=http://www.bigtakeover.com/news/japanese-rock-on-npr|access-date=2013-06-07|quote=It's a style of dress, there's a lot of costuming and make up and it's uniquely Japanese because it goes back to ancient Japan. Men would often wear women's clothing...}}</ref>"#;
     let simplified = parse_and_simplify_wikitext(wikitext, &PWT_CONFIGURATION).unwrap();
-    assert_eq!(simplified, spanned_vec![]);
+    assert_eq!(simplified, vec![]);
 }
 
 #[test]
@@ -798,9 +782,9 @@ fn test_to_wikitext_basic() {
 #[test]
 fn test_to_wikitext_bold() {
     let node = WSN::Bold {
-        children: spanned_vec![WSN::Text {
+        children: vec![sp(WSN::Text {
             text: "bold text".into(),
-        }],
+        }, 0, 0)],
     };
     assert_eq!(node.to_wikitext(), "'''bold text'''");
 }
@@ -808,9 +792,9 @@ fn test_to_wikitext_bold() {
 #[test]
 fn test_to_wikitext_italic() {
     let node = WSN::Italic {
-        children: spanned_vec![WSN::Text {
+        children: vec![sp(WSN::Text {
             text: "italic text".into(),
-        }],
+        }, 0, 0)],
     };
     assert_eq!(node.to_wikitext(), "''italic text''");
 }
@@ -818,11 +802,11 @@ fn test_to_wikitext_italic() {
 #[test]
 fn test_to_wikitext_bold_italic() {
     let node = WSN::Bold {
-        children: spanned_vec![WSN::Italic {
-            children: spanned_vec![WSN::Text {
+        children: vec![sp(WSN::Italic {
+            children: vec![sp(WSN::Text {
                 text: "bold italic text".into(),
-            }],
-        }],
+            }, 0, 0)],
+        }, 0, 0)],
     };
     assert_eq!(node.to_wikitext(), "'''''bold italic text'''''");
 }
@@ -903,9 +887,9 @@ fn test_to_wikitext_template() {
 fn test_to_wikitext_heading() {
     let node = WSN::Heading {
         level: 2,
-        children: spanned_vec![WSN::Text {
+        children: vec![sp(WSN::Text {
             text: "Heading".into(),
-        }],
+        }, 0, 0)],
     };
     assert_eq!(node.to_wikitext(), "== Heading ==");
 }
@@ -915,18 +899,18 @@ fn test_to_wikitext_tag() {
     let node = WSN::Tag {
         name: "span".into(),
         attributes: None,
-        children: spanned_vec![WSN::Text {
+        children: vec![sp(WSN::Text {
             text: "Hello".into(),
-        }],
+        }, 0, 0)],
     };
     assert_eq!(node.to_wikitext(), "<span>Hello</span>");
 
     let node = WSN::Tag {
         name: "span".into(),
         attributes: Some("style=\"color:red\"".into()),
-        children: spanned_vec![WSN::Text {
+        children: vec![sp(WSN::Text {
             text: "Red text".into(),
-        }],
+        }, 0, 0)],
     };
     assert_eq!(
         node.to_wikitext(),
@@ -946,30 +930,30 @@ fn test_to_wikitext_table() {
     .trim_start();
 
     let node = WSN::Table {
-        attributes: spanned_vec![WSN::Text {
+        attributes: vec![sp(WSN::Text {
             text: "class=\"wikitable\"".into(),
-        }],
+        }, 0, 0)],
         captions: vec![WikitextSimplifiedTableCaption {
             attributes: None,
-            content: spanned_vec![WSN::Text {
+            content: vec![sp(WSN::Text {
                 text: "Caption".into(),
-            }],
+            }, 0, 0)],
         }],
         rows: vec![WikitextSimplifiedTableRow {
             attributes: vec![],
             cells: vec![
                 WikitextSimplifiedTableCell {
                     attributes: None,
-                    content: spanned_vec![WSN::Text {
+                    content: vec![sp(WSN::Text {
                         text: "Cell 1".into(),
-                    }],
+                    }, 0, 0)],
                     is_header: false,
                 },
                 WikitextSimplifiedTableCell {
                     attributes: None,
-                    content: spanned_vec![WSN::Text {
+                    content: vec![sp(WSN::Text {
                         text: "Cell 2".into(),
-                    }],
+                    }, 0, 0)],
                     is_header: false,
                 },
             ],
@@ -995,36 +979,36 @@ fn test_to_wikitext_table_representative() {
             attributes: vec![],
             cells: vec![
                 WikitextSimplifiedTableCell {
-                    attributes: Some(spanned_vec![WSN::Text {
+                    attributes: Some(vec![sp(WSN::Text {
                         text: "width=\"120\" align=\"right\"".into(),
-                    }]),
-                    content: spanned_vec![
-                        WSN::Tag {
+                    }, 0, 0)]),
+                    content: vec![
+                        sp(WSN::Tag {
                             name: "font".into(),
                             attributes: Some("size=\"3\"".into()),
-                            children: spanned_vec![WSN::Text {
+                            children: vec![sp(WSN::Text {
                                 text: "Returns".into(),
-                            }],
-                        },
-                        WSN::Text { text: " ".into() },
-                        WSN::Text {
+                            }, 0, 0)],
+                        }, 0, 0),
+                        sp(WSN::Text { text: " ".into() }, 0, 0),
+                        sp(WSN::Text {
                             text: "\u{a0}".into(),
-                        },
-                        WSN::Text {
+                        }, 0, 0),
+                        sp(WSN::Text {
                             text: "\u{a0}".into(),
-                        },
+                        }, 0, 0),
                     ],
                     is_header: true,
                 },
                 WikitextSimplifiedTableCell {
                     attributes: None,
-                    content: spanned_vec![WSN::Tag {
+                    content: vec![sp(WSN::Tag {
                         name: "font".into(),
                         attributes: Some("size=\"3\"".into()),
-                        children: spanned_vec![WSN::Text {
+                        children: vec![sp(WSN::Text {
                             text: "None".into(),
-                        }],
-                    }],
+                        }, 0, 0)],
+                    }, 0, 0)],
                     is_header: false,
                 },
             ],
@@ -1038,14 +1022,14 @@ fn test_to_wikitext_list() {
     let node = WSN::OrderedList {
         items: vec![
             WikitextSimplifiedListItem {
-                content: spanned_vec![WSN::Text {
+                content: vec![sp(WSN::Text {
                     text: "Item 1".into(),
-                }],
+                }, 0, 0)],
             },
             WikitextSimplifiedListItem {
-                content: spanned_vec![WSN::Text {
+                content: vec![sp(WSN::Text {
                     text: "Item 2".into(),
-                }],
+                }, 0, 0)],
             },
         ],
     };
@@ -1054,14 +1038,14 @@ fn test_to_wikitext_list() {
     let node = WSN::UnorderedList {
         items: vec![
             WikitextSimplifiedListItem {
-                content: spanned_vec![WSN::Text {
+                content: vec![sp(WSN::Text {
                     text: "Item 1".into(),
-                }],
+                }, 0, 0)],
             },
             WikitextSimplifiedListItem {
-                content: spanned_vec![WSN::Text {
+                content: vec![sp(WSN::Text {
                     text: "Item 2".into(),
-                }],
+                }, 0, 0)],
             },
         ],
     };
@@ -1086,33 +1070,33 @@ fn test_to_wikitext_special_nodes() {
 #[test]
 fn test_to_wikitext_nested() {
     let node = WSN::Fragment {
-        children: spanned_vec![
-            WSN::Text {
+        children: vec![
+            sp(WSN::Text {
                 text: "This is ".into(),
-            },
-            WSN::Bold {
-                children: spanned_vec![WSN::Text {
+            }, 0, 0),
+            sp(WSN::Bold {
+                children: vec![sp(WSN::Text {
                     text: "bold".into(),
-                }],
-            },
-            WSN::Text {
+                }, 0, 0)],
+            }, 0, 0),
+            sp(WSN::Text {
                 text: ", this is ".into(),
-            },
-            WSN::Italic {
-                children: spanned_vec![WSN::Text {
+            }, 0, 0),
+            sp(WSN::Italic {
+                children: vec![sp(WSN::Text {
                     text: "italic".into(),
-                }],
-            },
-            WSN::Text {
+                }, 0, 0)],
+            }, 0, 0),
+            sp(WSN::Text {
                 text: ", and this is ".into(),
-            },
-            WSN::Bold {
-                children: spanned_vec![WSN::Italic {
-                    children: spanned_vec![WSN::Text {
+            }, 0, 0),
+            sp(WSN::Bold {
+                children: vec![sp(WSN::Italic {
+                    children: vec![sp(WSN::Text {
                         text: "bold italic".into(),
-                    }],
-                }],
-            },
+                    }, 0, 0)],
+                }, 0, 0)],
+            }, 0, 0),
         ],
     };
     assert_eq!(
@@ -1209,15 +1193,15 @@ fn test_definition_list_to_wikitext() {
         items: vec![
             WikitextSimplifiedDefinitionListItem {
                 type_: DefinitionListItemType::Term,
-                content: spanned_vec![WSN::Text {
+                content: vec![sp(WSN::Text {
                     text: "Term 1".into(),
-                }],
+                }, 0, 0)],
             },
             WikitextSimplifiedDefinitionListItem {
                 type_: DefinitionListItemType::Details,
-                content: spanned_vec![WSN::Text {
+                content: vec![sp(WSN::Text {
                     text: "Definition 1".into(),
-                }],
+                }, 0, 0)],
             },
         ],
     };
