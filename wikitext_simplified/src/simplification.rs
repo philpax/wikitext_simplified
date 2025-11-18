@@ -6,6 +6,28 @@ use wikitext_util::{nodes_inner_text, nodes_wikitext, NodeMetadata, NodeMetadata
 #[cfg(feature = "wasm")]
 use tsify_next::Tsify;
 
+/// A span representing a range in the source text
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct Span {
+    /// The start position in the source text
+    pub start: usize,
+    /// The end position in the source text
+    pub end: usize,
+}
+
+/// A helper type that wraps a value with its span in the source text
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct Spanned<T> {
+    /// The wrapped value
+    pub value: T,
+    /// The span of this value in the source text
+    pub span: Span,
+}
+
 /// Errors that can occur during simplification of wikitext nodes
 #[derive(Debug)]
 pub enum SimplificationError {
@@ -123,7 +145,7 @@ pub enum WikitextSimplifiedNode {
     /// A container node that can hold multiple child nodes
     Fragment {
         /// The child nodes contained within this fragment
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// A template node, representing a wikitext template
     Template {
@@ -137,14 +159,14 @@ pub enum WikitextSimplifiedNode {
         /// The name of the parameter
         name: String,
         /// Default, if available
-        default: Option<Vec<WikitextSimplifiedNode>>,
+        default: Option<Vec<Spanned<WikitextSimplifiedNode>>>,
     },
     /// A heading node
     Heading {
         /// The level of the heading
         level: u8,
         /// The content within the heading
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// An internal wiki link
     Link {
@@ -163,37 +185,37 @@ pub enum WikitextSimplifiedNode {
     /// Bold text formatting
     Bold {
         /// The content within the bold formatting
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Italic text formatting
     Italic {
         /// The content within the italic formatting
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Blockquote formatting
     Blockquote {
         /// The content within the blockquote
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Superscript text formatting
     Superscript {
         /// The content within the superscript formatting
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Subscript text formatting
     Subscript {
         /// The content within the subscript formatting
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Small text formatting
     Small {
         /// The content within the small text formatting
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Preformatted text
     Preformatted {
         /// The content within the preformatted block
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// An arbitrary tag.
     Tag {
@@ -202,7 +224,7 @@ pub enum WikitextSimplifiedNode {
         /// The HTML attributes of the tag
         attributes: Option<String>,
         /// The content within the tag
-        children: Vec<WikitextSimplifiedNode>,
+        children: Vec<Spanned<WikitextSimplifiedNode>>,
     },
     /// Plain text content
     Text {
@@ -212,7 +234,7 @@ pub enum WikitextSimplifiedNode {
     /// A table
     Table {
         /// The HTML attributes of the table
-        attributes: Vec<WikitextSimplifiedNode>,
+        attributes: Vec<Spanned<WikitextSimplifiedNode>>,
         /// The captions of the table
         captions: Vec<WikitextSimplifiedTableCaption>,
         /// The rows of the table
@@ -251,9 +273,9 @@ pub enum WikitextSimplifiedNode {
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct WikitextSimplifiedTableCaption {
     /// The HTML attributes of the caption
-    pub attributes: Option<Vec<WikitextSimplifiedNode>>,
+    pub attributes: Option<Vec<Spanned<WikitextSimplifiedNode>>>,
     /// The content of the caption
-    pub content: Vec<WikitextSimplifiedNode>,
+    pub content: Vec<Spanned<WikitextSimplifiedNode>>,
 }
 /// A row in a table
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -261,7 +283,7 @@ pub struct WikitextSimplifiedTableCaption {
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct WikitextSimplifiedTableRow {
     /// The HTML attributes of the row
-    pub attributes: Vec<WikitextSimplifiedNode>,
+    pub attributes: Vec<Spanned<WikitextSimplifiedNode>>,
     /// The cells in the row
     pub cells: Vec<WikitextSimplifiedTableCell>,
 }
@@ -273,9 +295,9 @@ pub struct WikitextSimplifiedTableCell {
     /// Whether this cell is a header cell (`!` syntax)
     pub is_header: bool,
     /// The HTML attributes of the cell
-    pub attributes: Option<Vec<WikitextSimplifiedNode>>,
+    pub attributes: Option<Vec<Spanned<WikitextSimplifiedNode>>>,
     /// The content of the cell
-    pub content: Vec<WikitextSimplifiedNode>,
+    pub content: Vec<Spanned<WikitextSimplifiedNode>>,
 }
 /// A list item
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -283,7 +305,7 @@ pub struct WikitextSimplifiedTableCell {
 #[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct WikitextSimplifiedListItem {
     /// The content of the list item
-    pub content: Vec<WikitextSimplifiedNode>,
+    pub content: Vec<Spanned<WikitextSimplifiedNode>>,
 }
 /// A list item in a definition list
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -293,7 +315,7 @@ pub struct WikitextSimplifiedDefinitionListItem {
     /// The type of list item
     pub type_: DefinitionListItemType,
     /// The content of the list item
-    pub content: Vec<WikitextSimplifiedNode>,
+    pub content: Vec<Spanned<WikitextSimplifiedNode>>,
 }
 /// The type of a definition list item
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -348,7 +370,7 @@ impl WikitextSimplifiedNode {
     ///
     /// This method returns `Some` for node types that can contain children (like `Fragment`,
     /// `Bold`, `Italic`, etc.) and `None` for leaf nodes (like `Text`, `ParagraphBreak`).
-    pub fn children(&self) -> Option<&[WikitextSimplifiedNode]> {
+    pub fn children(&self) -> Option<&[Spanned<WikitextSimplifiedNode>]> {
         match self {
             Self::Fragment { children } => Some(children),
             Self::Heading { children, .. } => Some(children),
@@ -382,7 +404,7 @@ impl WikitextSimplifiedNode {
     ///
     /// This method returns `Some` for node types that can contain children (like `Fragment`,
     /// `Bold`, `Italic`, etc.) and `None` for leaf nodes (like `Text`, `ParagraphBreak`).
-    pub fn children_mut(&mut self) -> Option<&mut Vec<WikitextSimplifiedNode>> {
+    pub fn children_mut(&mut self) -> Option<&mut Vec<Spanned<WikitextSimplifiedNode>>> {
         match self {
             Self::Fragment { children } => Some(children),
             Self::Heading { children, .. } => Some(children),
@@ -427,13 +449,13 @@ impl WikitextSimplifiedNode {
 
     /// Converts this node and its children back into wikitext format.
     pub fn to_wikitext(&self) -> String {
-        fn nodes_to_wikitext(nodes: &[WikitextSimplifiedNode]) -> String {
+        fn nodes_to_wikitext(nodes: &[Spanned<WikitextSimplifiedNode>]) -> String {
             let mut output = String::new();
             for node in nodes {
-                if node.is_block_type() {
+                if node.value.is_block_type() {
                     output.push('\n');
                 }
-                output.push_str(&node.to_wikitext());
+                output.push_str(&node.value.to_wikitext());
             }
             output
         }
@@ -629,14 +651,14 @@ macro_rules! visit_children_impl {
             | Self::Preformatted { children }
             | Self::Tag { children, .. } => {
                 for child in children {
-                    child.$visit_method($visitor);
+                    child.value.$visit_method($visitor);
                 }
             }
 
             Self::TemplateParameterUse { default, .. } => {
                 if let Some(default) = default {
                     for child in default {
-                        child.$visit_method($visitor);
+                        child.value.$visit_method($visitor);
                     }
                 }
             }
@@ -647,14 +669,14 @@ macro_rules! visit_children_impl {
                 ..
             } => {
                 for attr in attributes.$iter_method() {
-                    attr.$visit_method($visitor);
+                    attr.value.$visit_method($visitor);
                 }
                 for caption in captions.$iter_method().flat_map(|c| {
                     c.content
                         .$iter_method()
                         .chain(c.attributes.$iter_method().flat_map(|a| a.$iter_method()))
                 }) {
-                    caption.$visit_method($visitor);
+                    caption.value.$visit_method($visitor);
                 }
                 for row in rows.$iter_method() {
                     for cell in row.cells.$iter_method().flat_map(|c| {
@@ -662,24 +684,24 @@ macro_rules! visit_children_impl {
                             .$iter_method()
                             .chain(c.attributes.$iter_method().flat_map(|a| a.$iter_method()))
                     }) {
-                        cell.$visit_method($visitor);
+                        cell.value.$visit_method($visitor);
                     }
                 }
             }
             Self::OrderedList { items } => {
                 for item in items.$iter_method().flat_map(|i| i.content.$iter_method()) {
-                    item.$visit_method($visitor);
+                    item.value.$visit_method($visitor);
                 }
             }
             Self::UnorderedList { items } => {
                 for item in items.$iter_method().flat_map(|i| i.content.$iter_method()) {
-                    item.$visit_method($visitor);
+                    item.value.$visit_method($visitor);
                 }
             }
             Self::DefinitionList { items } => {
                 for item in items.$iter_method() {
                     for child in item.content.$iter_method() {
-                        child.$visit_method($visitor);
+                        child.value.$visit_method($visitor);
                     }
                 }
             }
@@ -748,21 +770,27 @@ pub struct TemplateParameter {
 pub fn simplify_wikitext_nodes(
     wikitext: &str,
     nodes: &[pwt::Node],
-) -> Result<Vec<WikitextSimplifiedNode>, SimplificationError> {
+) -> Result<Vec<Spanned<WikitextSimplifiedNode>>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;
     let mut root_stack = RootStack::new(wikitext);
 
     // Awful hack to deal with templates: special-case single start/end tags and preserve them as texts
     if nodes.len() == 1 {
         match &nodes[0] {
-            pwt::Node::StartTag { .. } => {
-                return Ok(vec![WSN::Text {
-                    text: nodes_wikitext(wikitext, nodes),
+            pwt::Node::StartTag { start, end, .. } => {
+                return Ok(vec![Spanned {
+                    value: WSN::Text {
+                        text: nodes_wikitext(wikitext, nodes),
+                    },
+                    span: Span { start: *start, end: *end },
                 }]);
             }
-            pwt::Node::EndTag { .. } => {
-                return Ok(vec![WSN::Text {
-                    text: nodes_wikitext(wikitext, nodes),
+            pwt::Node::EndTag { start, end, .. } => {
+                return Ok(vec![Spanned {
+                    value: WSN::Text {
+                        text: nodes_wikitext(wikitext, nodes),
+                    },
+                    span: Span { start: *start, end: *end },
                 }]);
             }
             _ => {}
@@ -777,81 +805,82 @@ pub fn simplify_wikitext_nodes(
     for node in nodes {
         root_stack.set_current_node(node);
         match node {
-            pwt::Node::Bold { .. } => {
+            pwt::Node::Bold { start, end } => {
                 if matches!(root_stack.last_layer(), WSN::Bold { .. }) {
-                    let bold = root_stack.pop_layer()?;
+                    let bold = root_stack.pop_layer(*end)?;
                     root_stack.add_to_children(bold)?;
                 } else {
-                    root_stack.push_layer(WSN::Bold { children: vec![] });
+                    root_stack.push_layer(WSN::Bold { children: vec![] }, *start);
                 }
             }
-            pwt::Node::Italic { .. } => {
+            pwt::Node::Italic { start, end } => {
                 if matches!(root_stack.last_layer(), WSN::Italic { .. }) {
-                    let italic = root_stack.pop_layer()?;
+                    let italic = root_stack.pop_layer(*end)?;
                     root_stack.add_to_children(italic)?;
                 } else {
-                    root_stack.push_layer(WSN::Italic { children: vec![] });
+                    root_stack.push_layer(WSN::Italic { children: vec![] }, *start);
                 }
             }
-            pwt::Node::BoldItalic { .. } => {
+            pwt::Node::BoldItalic { start, end } => {
                 if matches!(root_stack.last_layer(), WSN::Italic { .. }) {
-                    let italic = root_stack.pop_layer()?;
+                    let italic = root_stack.pop_layer(*end)?;
                     if matches!(root_stack.last_layer(), WSN::Bold { .. }) {
-                        let mut bold = root_stack.pop_layer()?;
-                        bold.children_mut().unwrap().push(italic);
+                        let mut bold = root_stack.pop_layer(*end)?;
+                        bold.value.children_mut().unwrap().push(italic);
                         root_stack.add_to_children(bold)?;
                     } else {
                         return Err(SimplificationError::InvalidNodeStructure {
                             kind: NodeStructureError::MissingBoldLayer,
-                            context: SimplificationErrorContext::from_node_metadata(
-                                wikitext,
-                                &NodeMetadata::for_node(node),
-                            ),
+                            context: SimplificationErrorContext {
+                                content: wikitext[*start..*end].to_string(),
+                                start: *start,
+                                end: *end,
+                            },
                         });
                     }
                 } else {
-                    root_stack.push_layer(WSN::Bold { children: vec![] });
-                    root_stack.push_layer(WSN::Italic { children: vec![] });
+                    root_stack.push_layer(WSN::Bold { children: vec![] }, *start);
+                    root_stack.push_layer(WSN::Italic { children: vec![] }, *start);
                 }
             }
-            pwt::Node::StartTag { name, .. } if name == "blockquote" => {
-                root_stack.push_layer(WSN::Blockquote { children: vec![] });
+            pwt::Node::StartTag { name, start, .. } if name == "blockquote" => {
+                root_stack.push_layer(WSN::Blockquote { children: vec![] }, *start);
             }
-            pwt::Node::EndTag { name, .. } if name == "blockquote" => {
-                let blockquote = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, "blockquote")?;
+            pwt::Node::EndTag { name, end, start } if name == "blockquote" => {
+                let blockquote = root_stack.pop_layer(*end)?;
+                assert_tag_closure_matches(wikitext, name, "blockquote", *start, *end)?;
                 root_stack.add_to_children(blockquote)?;
             }
-            pwt::Node::StartTag { name, .. } if name == "sup" => {
-                root_stack.push_layer(WSN::Superscript { children: vec![] });
+            pwt::Node::StartTag { name, start, .. } if name == "sup" => {
+                root_stack.push_layer(WSN::Superscript { children: vec![] }, *start);
             }
-            pwt::Node::EndTag { name, .. } if name == "sup" => {
-                let superscript = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, "sup")?;
+            pwt::Node::EndTag { name, end, start } if name == "sup" => {
+                let superscript = root_stack.pop_layer(*end)?;
+                assert_tag_closure_matches(wikitext, name, "sup", *start, *end)?;
                 root_stack.add_to_children(superscript)?;
             }
-            pwt::Node::StartTag { name, .. } if name == "sub" => {
-                root_stack.push_layer(WSN::Subscript { children: vec![] });
+            pwt::Node::StartTag { name, start, .. } if name == "sub" => {
+                root_stack.push_layer(WSN::Subscript { children: vec![] }, *start);
             }
-            pwt::Node::EndTag { name, .. } if name == "sub" => {
-                let subscript = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, "sub")?;
+            pwt::Node::EndTag { name, end, start } if name == "sub" => {
+                let subscript = root_stack.pop_layer(*end)?;
+                assert_tag_closure_matches(wikitext, name, "sub", *start, *end)?;
                 root_stack.add_to_children(subscript)?;
             }
-            pwt::Node::StartTag { name, .. } if name == "small" => {
-                root_stack.push_layer(WSN::Small { children: vec![] });
+            pwt::Node::StartTag { name, start, .. } if name == "small" => {
+                root_stack.push_layer(WSN::Small { children: vec![] }, *start);
             }
-            pwt::Node::EndTag { name, .. } if name == "small" => {
-                let small = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, "small")?;
+            pwt::Node::EndTag { name, end, start } if name == "small" => {
+                let small = root_stack.pop_layer(*end)?;
+                assert_tag_closure_matches(wikitext, name, "small", *start, *end)?;
                 root_stack.add_to_children(small)?;
             }
-            pwt::Node::StartTag { name, .. } if name == "pre" => {
-                root_stack.push_layer(WSN::Preformatted { children: vec![] });
+            pwt::Node::StartTag { name, start, .. } if name == "pre" => {
+                root_stack.push_layer(WSN::Preformatted { children: vec![] }, *start);
             }
-            pwt::Node::EndTag { name, .. } if name == "pre" => {
-                let preformatted = root_stack.pop_layer()?;
-                assert_tag_closure_matches(name, "pre")?;
+            pwt::Node::EndTag { name, end, start } if name == "pre" => {
+                let preformatted = root_stack.pop_layer(*end)?;
+                assert_tag_closure_matches(wikitext, name, "pre", *start, *end)?;
                 root_stack.add_to_children(preformatted)?;
             }
             pwt::Node::StartTag {
@@ -866,34 +895,35 @@ pub fn simplify_wikitext_nodes(
                     name: name.to_string(),
                     attributes: extract_tag_attributes(opening_tag),
                     children: vec![],
-                });
+                }, *start);
             }
-            pwt::Node::EndTag { name, .. } if !FAKE_TAGS.contains(&name.as_ref()) => {
-                let tag = root_stack.pop_layer()?;
-                if let WSN::Tag { name: tag_name, .. } = &tag {
-                    assert_tag_closure_matches(name, tag_name)?;
+            pwt::Node::EndTag { name, start, end } if !FAKE_TAGS.contains(&name.as_ref()) => {
+                let tag = root_stack.pop_layer(*end)?;
+                if let WSN::Tag { name: tag_name, .. } = &tag.value {
+                    assert_tag_closure_matches(wikitext, name, tag_name, *start, *end)?;
                 } else {
                     return Err(SimplificationError::InvalidNodeStructure {
                         kind: NodeStructureError::TagClosureMismatch {
                             expected: name.to_string(),
-                            actual: tag.node_type().to_string(),
+                            actual: tag.value.node_type().to_string(),
                         },
-                        context: SimplificationErrorContext::from_node_metadata(
-                            wikitext,
-                            &NodeMetadata::for_node(node),
-                        ),
+                        context: SimplificationErrorContext {
+                            content: wikitext[*start..*end].to_string(),
+                            start: *start,
+                            end: *end,
+                        },
                     });
                 }
                 root_stack.add_to_children(tag)?;
             }
             other => {
-                if let Some((simplified_node, node_bounds)) =
+                if let Some(simplified_node) =
                     simplify_wikitext_node(wikitext, other, text_start_override)?
                 {
                     // HACK: deal with `link_trail` by preserving the end of the link and forcing the next
                     // text to start at the end of the link
-                    text_start_override = match (&simplified_node, node_bounds) {
-                        (WSN::Link { .. }, Some((_, end))) => Some(end),
+                    text_start_override = match &simplified_node.value {
+                        WSN::Link { .. } => Some(simplified_node.span.end),
                         _ => None,
                     };
 
@@ -904,8 +934,11 @@ pub fn simplify_wikitext_nodes(
     }
 
     fn assert_tag_closure_matches(
+        wikitext: &str,
         end_tag_name: &str,
         last_node_name: &str,
+        start: usize,
+        end: usize,
     ) -> Result<(), SimplificationError> {
         if last_node_name == end_tag_name {
             return Ok(());
@@ -916,12 +949,9 @@ pub fn simplify_wikitext_nodes(
                 actual: last_node_name.to_string(),
             },
             context: SimplificationErrorContext {
-                // Filling this in requires us to have the original bounds and wikitext,
-                // which we don't have here. This can be fixed, but it would require a more
-                // significant refactor.
-                content: "TODO: Fill in context for tag closure mismatch".into(),
-                start: 0,
-                end: 0,
+                content: wikitext[start..end].to_string(),
+                start,
+                end,
             },
         })
     }
@@ -934,17 +964,14 @@ pub fn simplify_wikitext_nodes(
 /// format into the simplified format. It handles various node types including templates,
 /// links, text, and formatting nodes.
 ///
-/// It will return the bounds of the node in the original wikitext, if available.
-///
 /// # Errors
 ///
 /// This function will return an error if it encounters an unknown node type.
-#[allow(clippy::type_complexity)]
 pub fn simplify_wikitext_node(
     wikitext: &str,
     node: &pwt::Node,
     text_start_override: Option<usize>,
-) -> Result<Option<(WikitextSimplifiedNode, Option<(usize, usize)>)>, SimplificationError> {
+) -> Result<Option<Spanned<WikitextSimplifiedNode>>, SimplificationError> {
     use WikitextSimplifiedNode as WSN;
     match node {
         pwt::Node::Template {
@@ -979,13 +1006,13 @@ pub fn simplify_wikitext_node(
                 new_parameters.push(TemplateParameter { name, value });
             }
 
-            return Ok(Some((
-                WSN::Template {
+            return Ok(Some(Spanned {
+                value: WSN::Template {
                     name: nodes_inner_text(name),
                     parameters: new_parameters,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::MagicWord { .. } => {
             // Making the current assumption that we don't care about these
@@ -997,13 +1024,13 @@ pub fn simplify_wikitext_node(
             start,
             end,
         } => {
-            return Ok(Some((
-                WSN::Heading {
+            return Ok(Some(Spanned {
+                value: WSN::Heading {
                     level: *level,
                     children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Bold { .. } | pwt::Node::BoldItalic { .. } | pwt::Node::Italic { .. } => {
             // We can't do anything at this level
@@ -1015,13 +1042,13 @@ pub fn simplify_wikitext_node(
             start,
             end,
         } => {
-            return Ok(Some((
-                WSN::Link {
+            return Ok(Some(Spanned {
+                value: WSN::Link {
                     text: nodes_wikitext(wikitext, text),
                     title: target.to_string(),
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::ExternalLink { nodes, start, end } => {
             let inner = nodes_wikitext(wikitext, nodes);
@@ -1029,13 +1056,13 @@ pub fn simplify_wikitext_node(
                 .split_once(' ')
                 .map(|(l, t)| (l, Some(t)))
                 .unwrap_or((&inner, None));
-            return Ok(Some((
-                WSN::ExtLink {
+            return Ok(Some(Spanned {
+                value: WSN::ExtLink {
                     link: link.to_string(),
                     text: text.map(|s| s.to_string()),
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Text { value, start, end } => {
             let text_start = text_start_override.unwrap_or(*start);
@@ -1044,27 +1071,30 @@ pub fn simplify_wikitext_node(
             if text.is_empty() {
                 return Ok(None);
             }
-            return Ok(Some((
-                WSN::Text {
+            return Ok(Some(Spanned {
+                value: WSN::Text {
                     text: text.to_string(),
                 },
-                Some((text_start, *end)),
-            )));
+                span: Span { start: text_start, end: *end },
+            }));
         }
         pwt::Node::CharacterEntity {
             character,
             start,
             end,
         } => {
-            return Ok(Some((
-                WSN::Text {
+            return Ok(Some(Spanned {
+                value: WSN::Text {
                     text: character.to_string(),
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::ParagraphBreak { start, end } => {
-            return Ok(Some((WSN::ParagraphBreak, Some((*start, *end)))));
+            return Ok(Some(Spanned {
+                value: WSN::ParagraphBreak,
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Category { .. } | pwt::Node::Comment { .. } | pwt::Node::Image { .. } => {
             // Don't care
@@ -1114,14 +1144,14 @@ pub fn simplify_wikitext_node(
                 });
             }
 
-            return Ok(Some((
-                WSN::Table {
+            return Ok(Some(Spanned {
+                value: WSN::Table {
                     attributes: simplify_wikitext_nodes(wikitext, attributes)?,
                     captions: simplified_captions,
                     rows: simplified_rows,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::OrderedList { items, start, end } => {
             let mut simplified_items = vec![];
@@ -1129,12 +1159,12 @@ pub fn simplify_wikitext_node(
                 let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
                 simplified_items.push(WikitextSimplifiedListItem { content });
             }
-            return Ok(Some((
-                WSN::OrderedList {
+            return Ok(Some(Spanned {
+                value: WSN::OrderedList {
                     items: simplified_items,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::UnorderedList { items, start, end } => {
             let mut simplified_items = vec![];
@@ -1142,12 +1172,12 @@ pub fn simplify_wikitext_node(
                 let content = simplify_wikitext_nodes(wikitext, &item.nodes)?;
                 simplified_items.push(WikitextSimplifiedListItem { content });
             }
-            return Ok(Some((
-                WSN::UnorderedList {
+            return Ok(Some(Spanned {
+                value: WSN::UnorderedList {
                     items: simplified_items,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::DefinitionList { items, start, end } => {
             let mut simplified_items = vec![];
@@ -1161,12 +1191,12 @@ pub fn simplify_wikitext_node(
                     content,
                 });
             }
-            return Ok(Some((
-                WSN::DefinitionList {
+            return Ok(Some(Spanned {
+                value: WSN::DefinitionList {
                     items: simplified_items,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Tag {
             name,
@@ -1184,22 +1214,22 @@ pub fn simplify_wikitext_node(
             let closing_bracket_pos = tag_content.find('>').unwrap_or(tag_content.len());
             let opening_tag = &tag_content[..closing_bracket_pos];
 
-            return Ok(Some((
-                WSN::Tag {
+            return Ok(Some(Spanned {
+                value: WSN::Tag {
                     name: name.to_string(),
                     attributes: extract_tag_attributes(opening_tag),
                     children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Preformatted { nodes, start, end } => {
-            return Ok(Some((
-                WSN::Preformatted {
+            return Ok(Some(Spanned {
+                value: WSN::Preformatted {
                     children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Parameter {
             name,
@@ -1207,33 +1237,42 @@ pub fn simplify_wikitext_node(
             start,
             end,
         } => {
-            return Ok(Some((
-                WSN::TemplateParameterUse {
+            return Ok(Some(Spanned {
+                value: WSN::TemplateParameterUse {
                     name: nodes_inner_text(name),
                     default: default
                         .as_deref()
                         .map(|nodes| simplify_wikitext_nodes(wikitext, nodes))
                         .transpose()?,
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::Redirect { target, start, end } => {
-            return Ok(Some((
-                WSN::Redirect {
+            return Ok(Some(Spanned {
+                value: WSN::Redirect {
                     target: target.to_string(),
                 },
-                Some((*start, *end)),
-            )));
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::HorizontalDivider { start, end } => {
-            return Ok(Some((WSN::HorizontalDivider, Some((*start, *end)))));
+            return Ok(Some(Spanned {
+                value: WSN::HorizontalDivider,
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::StartTag { name, start, end } if name == "hr" || name == "hr/" => {
-            return Ok(Some((WSN::HorizontalDivider, Some((*start, *end)))));
+            return Ok(Some(Spanned {
+                value: WSN::HorizontalDivider,
+                span: Span { start: *start, end: *end },
+            }));
         }
         pwt::Node::StartTag { name, start, end } if name == "br" || name == "br/" => {
-            return Ok(Some((WSN::ParagraphBreak, Some((*start, *end)))));
+            return Ok(Some(Spanned {
+                value: WSN::ParagraphBreak,
+                span: Span { start: *start, end: *end },
+            }));
         }
         _ => {}
     }
@@ -1245,37 +1284,41 @@ pub fn simplify_wikitext_node(
 }
 
 struct RootStack<'a> {
-    stack: Vec<WikitextSimplifiedNode>,
+    stack: Vec<(WikitextSimplifiedNode, usize)>,
     wikitext: &'a str,
     current_node: Option<&'a pwt::Node<'a>>,
 }
 impl<'a> RootStack<'a> {
     fn new(wikitext: &'a str) -> Self {
         Self {
-            stack: vec![WikitextSimplifiedNode::Fragment { children: vec![] }],
+            stack: vec![(WikitextSimplifiedNode::Fragment { children: vec![] }, 0)],
             wikitext,
             current_node: None,
         }
     }
 
-    fn push_layer(&mut self, node: WikitextSimplifiedNode) {
-        self.stack.push(node);
+    fn push_layer(&mut self, node: WikitextSimplifiedNode, start: usize) {
+        self.stack.push((node, start));
     }
 
-    fn pop_layer(&mut self) -> Result<WikitextSimplifiedNode, SimplificationError> {
-        self.stack
+    fn pop_layer(&mut self, end: usize) -> Result<Spanned<WikitextSimplifiedNode>, SimplificationError> {
+        let (node, start) = self.stack
             .pop()
             .ok_or_else(|| SimplificationError::InvalidNodeStructure {
                 kind: NodeStructureError::StackUnderflow,
                 context: Self::error_context_for_current_node(self.wikitext, self.current_node),
-            })
+            })?;
+        Ok(Spanned {
+            value: node,
+            span: Span { start, end },
+        })
     }
 
     fn last_layer(&self) -> &WikitextSimplifiedNode {
-        self.stack.last().unwrap()
+        &self.stack.last().unwrap().0
     }
 
-    fn add_to_children(&mut self, node: WikitextSimplifiedNode) -> Result<(), SimplificationError> {
+    fn add_to_children(&mut self, node: Spanned<WikitextSimplifiedNode>) -> Result<(), SimplificationError> {
         let last_layer =
             self.stack
                 .last_mut()
@@ -1283,9 +1326,9 @@ impl<'a> RootStack<'a> {
                     kind: NodeStructureError::StackUnderflow,
                     context: Self::error_context_for_current_node(self.wikitext, self.current_node),
                 })?;
-        let parent_node_type = last_layer.node_type();
+        let parent_node_type = last_layer.0.node_type();
 
-        last_layer
+        last_layer.0
             .children_mut()
             .ok_or_else(|| SimplificationError::InvalidNodeStructure {
                 kind: NodeStructureError::NoChildren { parent_node_type },
@@ -1296,13 +1339,15 @@ impl<'a> RootStack<'a> {
         Ok(())
     }
 
-    fn unwind(mut self) -> Result<Vec<WikitextSimplifiedNode>, SimplificationError> {
+    fn unwind(mut self) -> Result<Vec<Spanned<WikitextSimplifiedNode>>, SimplificationError> {
         // This is a disgusting hack, but Wikipedia implicitly closes these, so we need to as well...
+        // Use the end of wikitext as the end position for implicitly closed tags
+        let wikitext_end = self.wikitext.len();
         while self.stack.len() > 1 {
-            let popped = self.pop_layer()?;
+            let popped = self.pop_layer(wikitext_end)?;
             self.add_to_children(popped)?;
         }
-        Ok(self.stack[0].children().unwrap().to_vec())
+        Ok(self.stack[0].0.children().unwrap().to_vec())
     }
 
     fn set_current_node(&mut self, node: &'a pwt::Node) {
