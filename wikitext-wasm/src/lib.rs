@@ -8,10 +8,8 @@ pub fn parse_wikitext(wikitext: &str) -> Result<JsValue, JsValue> {
     let config = wikipedia_pwt_configuration();
 
     match parse_and_simplify_wikitext(wikitext, &config) {
-        Ok(nodes) => {
-            serde_wasm_bindgen::to_value(&nodes)
-                .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
-        }
+        Ok(nodes) => serde_wasm_bindgen::to_value(&nodes)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e))),
         Err(e) => Err(JsValue::from_str(&format!("{}", e))),
     }
 }
