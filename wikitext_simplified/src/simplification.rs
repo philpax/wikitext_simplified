@@ -782,7 +782,10 @@ pub fn simplify_wikitext_nodes(
                     value: WSN::Text {
                         text: nodes_wikitext(wikitext, nodes),
                     },
-                    span: Span { start: *start, end: *end },
+                    span: Span {
+                        start: *start,
+                        end: *end,
+                    },
                 }]);
             }
             pwt::Node::EndTag { start, end, .. } => {
@@ -790,7 +793,10 @@ pub fn simplify_wikitext_nodes(
                     value: WSN::Text {
                         text: nodes_wikitext(wikitext, nodes),
                     },
-                    span: Span { start: *start, end: *end },
+                    span: Span {
+                        start: *start,
+                        end: *end,
+                    },
                 }]);
             }
             _ => {}
@@ -891,30 +897,41 @@ pub fn simplify_wikitext_nodes(
                 let closing_bracket_pos = tag_content.find('>').unwrap_or(tag_content.len());
                 let opening_tag = &tag_content[..closing_bracket_pos];
 
-                root_stack.push_layer(WSN::Tag {
-                    name: name.to_string(),
-                    attributes: extract_tag_attributes(opening_tag),
-                    children: vec![],
-                }, *start);
+                root_stack.push_layer(
+                    WSN::Tag {
+                        name: name.to_string(),
+                        attributes: extract_tag_attributes(opening_tag),
+                        children: vec![],
+                    },
+                    *start,
+                );
             }
             pwt::Node::EndTag { name, start, end } if !FAKE_TAGS.contains(&name.as_ref()) => {
-                let tag = root_stack.pop_layer(*end)?;
-                if let WSN::Tag { name: tag_name, .. } = &tag.value {
-                    assert_tag_closure_matches(wikitext, name, tag_name, *start, *end)?;
+                // Check if there's a matching opening tag on the stack
+                if root_stack.find_matching_tag(name).is_some() {
+                    let tag = root_stack.pop_layer(*end)?;
+                    if let WSN::Tag { name: tag_name, .. } = &tag.value {
+                        assert_tag_closure_matches(wikitext, name, tag_name, *start, *end)?;
+                    } else {
+                        // This shouldn't happen if find_matching_tag works correctly,
+                        // but handle it gracefully by treating as orphan
+                        root_stack.push_layer_back(tag);
+                        root_stack.add_to_children(Spanned {
+                            value: WSN::Text {
+                                text: wikitext[*start..*end].to_string(),
+                            },
+                            span: Span {
+                                start: *start,
+                                end: *end,
+                            },
+                        })?;
+                        continue;
+                    }
+                    root_stack.add_to_children(tag)?;
                 } else {
-                    return Err(SimplificationError::InvalidNodeStructure {
-                        kind: NodeStructureError::TagClosureMismatch {
-                            expected: name.to_string(),
-                            actual: tag.value.node_type().to_string(),
-                        },
-                        context: SimplificationErrorContext {
-                            content: wikitext[*start..*end].to_string(),
-                            start: *start,
-                            end: *end,
-                        },
-                    });
+                    // No matching opening tag found - silently discard the orphan closing tag
+                    // (this matches MediaWiki's behavior)
                 }
-                root_stack.add_to_children(tag)?;
             }
             other => {
                 if let Some(simplified_node) =
@@ -1011,7 +1028,10 @@ pub fn simplify_wikitext_node(
                     name: nodes_inner_text(name),
                     parameters: new_parameters,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::MagicWord { .. } => {
@@ -1029,7 +1049,10 @@ pub fn simplify_wikitext_node(
                     level: *level,
                     children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Bold { .. } | pwt::Node::BoldItalic { .. } | pwt::Node::Italic { .. } => {
@@ -1047,7 +1070,10 @@ pub fn simplify_wikitext_node(
                     text: nodes_wikitext(wikitext, text),
                     title: target.to_string(),
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::ExternalLink { nodes, start, end } => {
@@ -1061,7 +1087,10 @@ pub fn simplify_wikitext_node(
                     link: link.to_string(),
                     text: text.map(|s| s.to_string()),
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Text { value, start, end } => {
@@ -1075,7 +1104,10 @@ pub fn simplify_wikitext_node(
                 value: WSN::Text {
                     text: text.to_string(),
                 },
-                span: Span { start: text_start, end: *end },
+                span: Span {
+                    start: text_start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::CharacterEntity {
@@ -1087,13 +1119,19 @@ pub fn simplify_wikitext_node(
                 value: WSN::Text {
                     text: character.to_string(),
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::ParagraphBreak { start, end } => {
             return Ok(Some(Spanned {
                 value: WSN::ParagraphBreak,
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Category { .. } | pwt::Node::Comment { .. } | pwt::Node::Image { .. } => {
@@ -1150,7 +1188,10 @@ pub fn simplify_wikitext_node(
                     captions: simplified_captions,
                     rows: simplified_rows,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::OrderedList { items, start, end } => {
@@ -1163,7 +1204,10 @@ pub fn simplify_wikitext_node(
                 value: WSN::OrderedList {
                     items: simplified_items,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::UnorderedList { items, start, end } => {
@@ -1176,7 +1220,10 @@ pub fn simplify_wikitext_node(
                 value: WSN::UnorderedList {
                     items: simplified_items,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::DefinitionList { items, start, end } => {
@@ -1195,7 +1242,10 @@ pub fn simplify_wikitext_node(
                 value: WSN::DefinitionList {
                     items: simplified_items,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Tag {
@@ -1220,7 +1270,10 @@ pub fn simplify_wikitext_node(
                     attributes: extract_tag_attributes(opening_tag),
                     children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Preformatted { nodes, start, end } => {
@@ -1228,7 +1281,10 @@ pub fn simplify_wikitext_node(
                 value: WSN::Preformatted {
                     children: simplify_wikitext_nodes(wikitext, nodes)?,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Parameter {
@@ -1245,7 +1301,10 @@ pub fn simplify_wikitext_node(
                         .map(|nodes| simplify_wikitext_nodes(wikitext, nodes))
                         .transpose()?,
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::Redirect { target, start, end } => {
@@ -1253,25 +1312,37 @@ pub fn simplify_wikitext_node(
                 value: WSN::Redirect {
                     target: target.to_string(),
                 },
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::HorizontalDivider { start, end } => {
             return Ok(Some(Spanned {
                 value: WSN::HorizontalDivider,
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::StartTag { name, start, end } if name == "hr" || name == "hr/" => {
             return Ok(Some(Spanned {
                 value: WSN::HorizontalDivider,
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         pwt::Node::StartTag { name, start, end } if name == "br" || name == "br/" => {
             return Ok(Some(Spanned {
                 value: WSN::ParagraphBreak,
-                span: Span { start: *start, end: *end },
+                span: Span {
+                    start: *start,
+                    end: *end,
+                },
             }));
         }
         _ => {}
@@ -1301,13 +1372,17 @@ impl<'a> RootStack<'a> {
         self.stack.push((node, start));
     }
 
-    fn pop_layer(&mut self, end: usize) -> Result<Spanned<WikitextSimplifiedNode>, SimplificationError> {
-        let (node, start) = self.stack
-            .pop()
-            .ok_or_else(|| SimplificationError::InvalidNodeStructure {
-                kind: NodeStructureError::StackUnderflow,
-                context: Self::error_context_for_current_node(self.wikitext, self.current_node),
-            })?;
+    fn pop_layer(
+        &mut self,
+        end: usize,
+    ) -> Result<Spanned<WikitextSimplifiedNode>, SimplificationError> {
+        let (node, start) =
+            self.stack
+                .pop()
+                .ok_or_else(|| SimplificationError::InvalidNodeStructure {
+                    kind: NodeStructureError::StackUnderflow,
+                    context: Self::error_context_for_current_node(self.wikitext, self.current_node),
+                })?;
         Ok(Spanned {
             value: node,
             span: Span { start, end },
@@ -1318,7 +1393,27 @@ impl<'a> RootStack<'a> {
         &self.stack.last().unwrap().0
     }
 
-    fn add_to_children(&mut self, node: Spanned<WikitextSimplifiedNode>) -> Result<(), SimplificationError> {
+    /// Checks if there's a matching Tag with the given name on the stack.
+    /// Returns the tag name if found, None otherwise.
+    fn find_matching_tag(&self, name: &str) -> Option<&str> {
+        // Check if the last layer is a Tag with the matching name
+        if let WikitextSimplifiedNode::Tag { name: tag_name, .. } = self.last_layer() {
+            if tag_name == name {
+                return Some(tag_name);
+            }
+        }
+        None
+    }
+
+    /// Pushes a previously popped layer back onto the stack
+    fn push_layer_back(&mut self, spanned: Spanned<WikitextSimplifiedNode>) {
+        self.stack.push((spanned.value, spanned.span.start));
+    }
+
+    fn add_to_children(
+        &mut self,
+        node: Spanned<WikitextSimplifiedNode>,
+    ) -> Result<(), SimplificationError> {
         let last_layer =
             self.stack
                 .last_mut()
@@ -1328,7 +1423,8 @@ impl<'a> RootStack<'a> {
                 })?;
         let parent_node_type = last_layer.0.node_type();
 
-        last_layer.0
+        last_layer
+            .0
             .children_mut()
             .ok_or_else(|| SimplificationError::InvalidNodeStructure {
                 kind: NodeStructureError::NoChildren { parent_node_type },
