@@ -1,0 +1,115 @@
+name: Frontend
+
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock', 'Cargo.toml', 'wikitext-wasm/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-wasm-
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack &> /dev/null; then
+            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          fi
+
+      - name: Build frontend
+        run: python build-frontend.py --build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  deploy:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+
+      - name: Checkout GitHub Pages repository
+        uses: actions/checkout@v4
+        with:
+          repository: philpax/philpax.github.io
+          path: pages
+          token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+
+      - name: Deploy to GitHub Pages
+        working-directory: pages
+        run: |
+          # Create target directory if it doesn't exist
+          mkdir -p static/experimental/wikitext
+
+          # Remove old files
+          rm -rf static/experimental/wikitext/*
+
+          # Copy new build
+          cp -r ../dist/* static/experimental/wikitext/
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Commit and push
+          git add static/experimental/wikitext
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Deploy wikitext_simplified frontend
+
+            Automated deployment from philpax/wikitext_simplified@${{ github.sha }}"
+            git push
+          fi
+
+      - name: Deployment complete
+        run: |
+          echo "✓ Frontend deployed successfully!"
+          echo "🌐 Available at: https://philpax.me/experimental/wikitext/"
