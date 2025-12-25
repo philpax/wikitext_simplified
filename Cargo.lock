@@ -275,6 +275,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wikitext-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "wasm-bindgen",
+ "wikitext_simplified",
+ "wikitext_util",
+]
+
+[[package]]
 name = "wikitext_simplified"
 version = "0.1.0"
 dependencies = [
