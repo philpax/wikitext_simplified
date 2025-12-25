@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Spanned, WikitextSimplifiedNode, WikitextSimplifiedListItem, WikitextSimplifiedDefinitionListItem, WikitextSimplifiedTableRow, WikitextSimplifiedTableCaption } from './types';
+import type { Spanned, WikitextSimplifiedNode, WikitextSimplifiedListItem, WikitextSimplifiedDefinitionListItem, WikitextSimplifiedTableRow, WikitextSimplifiedTableCaption } from './wasm/wikitext_wasm';
 
 interface HtmlPreviewProps {
   nodes: Spanned<WikitextSimplifiedNode>[];

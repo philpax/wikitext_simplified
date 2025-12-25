@@ -1,5 +1,5 @@
 import { useState, useCallback, type ReactNode } from 'react';
-import type { Spanned, WikitextSimplifiedNode, TemplateParameter, WikitextSimplifiedListItem, WikitextSimplifiedDefinitionListItem, WikitextSimplifiedTableRow, WikitextSimplifiedTableCaption } from './types';
+import type { Spanned, WikitextSimplifiedNode, TemplateParameter, WikitextSimplifiedListItem, WikitextSimplifiedDefinitionListItem, WikitextSimplifiedTableRow, WikitextSimplifiedTableCaption } from './wasm/wikitext_wasm';
 
 // Color scheme for different node types (blue and green theme)
 const nodeColors: Record<string, string> = {

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import init, { parse_wikitext } from './wasm/wikitext_wasm';
+import init, { parse_wikitext, type Spanned, type WikitextSimplifiedNode } from './wasm/wikitext_wasm';
 import TreeView from './TreeView';
 import HtmlPreview from './HtmlPreview';
 import { examples } from './examples';
-import type { Spanned, WikitextSimplifiedNode } from './types';
 import './index.css';
 
 type ViewMode = 'tree' | 'preview' | 'both';
