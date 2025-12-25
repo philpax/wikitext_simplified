@@ -1,73 +1,58 @@
-# React + TypeScript + Vite
+# Wikitext Simplified Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web-based visualization tool for parsing and exploring MediaWiki wikitext. This frontend wraps the [wikitext_simplified](https://github.com/philpax/wikitext_simplified) Rust library compiled to WebAssembly.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Live Parsing**: Wikitext is parsed in real-time as you type (with 300ms debounce)
+- **AST Tree View**: Collapsible tree visualization of the parsed abstract syntax tree
+- **HTML Preview**: Rendered preview of the wikitext with template placeholders
+- **Source Highlighting**: Hover over tree nodes to highlight the corresponding source text
+- **Click to Select**: Click tree nodes to select the text range in the editor
+- **Example Snippets**: Pre-built examples demonstrating various wikitext features
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
 
-## Expanding the ESLint configuration
+- Node.js 20+
+- Rust toolchain with `wasm32-unknown-unknown` target
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Setup
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+From the repository root:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+```bash
+# Build WASM and install dependencies
+python build-frontend.py
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start development server
+python build-frontend.py --dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Or manually:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Build WASM bindings
+wasm-pack build wikitext-wasm --target web --out-dir ../frontend/src/wasm
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Install dependencies
+cd frontend
+npm install
+
+# Start dev server
+npm run dev
 ```
+
+### Production Build
+
+```bash
+python build-frontend.py --build
+```
+
+The production build will be in `frontend/dist/`.
+
+## Deployment
+
+The frontend auto-deploys to [philpax.me/experimental/wikitext](https://philpax.me/experimental/wikitext/) on pushes to `main` via GitHub Actions.
