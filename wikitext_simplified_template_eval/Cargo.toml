@@ -1,0 +1,9 @@
+[package]
+name = "wikitext_simplified_template_eval"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+wikitext_simplified = { path = "../wikitext_simplified" }
+parse-wiki-text-2.workspace = true
+async-trait = "0.1"

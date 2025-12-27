@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "wikitext_simplified", "wikitext_util", "wikitext-wasm"]
+members = [".", "wikitext_simplified", "wikitext_util", "wikitext-wasm", "wikitext_simplified_template_eval"]
 resolver = "2"
 
 [workspace.dependencies]
